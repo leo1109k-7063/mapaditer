@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>500x500 맵 에디터 & 셀 연동 덩어리 시스템</title>
+    <title>500x500 맵 에디터 & 연두색 육지 통일 시스템</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -73,8 +73,8 @@
             left: 0;
             image-rendering: pixelated;
         }
-        #bgCanvas { z-index: 1; }
-        #gridCanvas { z-index: 2; opacity: 0.85; }
+        #bgCanvas { z-index: 1; display: none; } /* 배경 이미지 투명화 후 캔버스로 제어 */
+        #gridCanvas { z-index: 2; opacity: 1; }
 
         #controls-overlay {
             position: absolute;
@@ -131,7 +131,7 @@
 <body>
 
     <div id="header">
-        <h3 style="margin:0;">🗺️ 500×500 맵 에디터 (셀 기반 덩어리 연동 시스템)</h3>
+        <h3 style="margin:0;">🗺️ 500×500 맵 에디터 (연두색 육지 통일)</h3>
         <div>
             <button class="action-btn" onclick="openModal()">⚡ [독립 실행형 HTML 추출 및 내보내기]</button>
         </div>
@@ -189,7 +189,7 @@
         </div>
         <div id="controls-overlay">
             좌표: <span id="coord">X: -, Y: -</span> | 확대: <span id="zoomScale">100%</span><br>
-            💡 시설의 어떤 한 픽셀이라도 육지(지우개)로 칠하면 연결된 전체 시설 규격 칸이 통째로 지워집니다!
+            💡 사진이나 파일 업로드 시 육지는 모두 동일한 연두색(#4CAF50)으로 자동 채워집니다.
         </div>
     </div>
 
@@ -254,10 +254,9 @@
             document.getElementById('brushVal').innerText = brushRadius + 'px';
         };
 
-        // 특정 좌표(x, y)가 속한 시설 덩어리의 전체 bounding box(영역)를 찾아 반환하는 함수
         function findFacilityBounds(startX, startY) {
             let targetType = gridData[startY * GRID_SIZE + startX];
-            if (targetType < 4) return null; // 지형(0~3)이면 시설이 아님
+            if (targetType < 4) return null;
 
             let minX = startX, maxX = startX;
             let minY = startY, maxY = startY;
@@ -287,7 +286,7 @@
             return { minX, maxX, minY, maxY, type: targetType };
         }
 
-        // 기존 맵 HTML 업로드 파싱 (시설 셀 타입 4, 5, 6 완벽 복원)
+        // 기존 맵 HTML 업로드 파싱
         document.getElementById('htmlUploadInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -312,7 +311,7 @@
             reader.readAsText(file);
         });
 
-        // 배경 이미지 자동 분석 (시설 셀 4,5,6은 보호)
+        // 배경 이미지 자동 분석
         document.getElementById('imageInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -328,18 +327,18 @@
                         for (let x = 0; x < 500; x++) {
                             let idx = (y * 500 + x) * 4;
                             let currentVal = gridData[y * 500 + x];
-                            if (currentVal >= 4) continue; // 기존 시설은 보호
+                            if (currentVal >= 4) continue; // 기존 중요 시설은 보호
 
                             let r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
                             if (b > r + 30 && b > g + 20) {
-                                gridData[y * 500 + x] = (b > 160 && g > 100) ? 2 : 1;
+                                gridData[y * 500 + x] = (b > 160 && g > 100) ? 2 : 1; // 바다/강
                             } else {
-                                gridData[y * 500 + x] = 0;
+                                gridData[y * 500 + x] = 0; // 육지 (연두색 통일)
                             }
                         }
                     }
                     redrawGrid();
-                    alert("배경 이미지 분석 완료!");
+                    alert("배경 이미지 분석 완료! 육지가 연두색으로 통일되었습니다.");
                 };
                 img.src = event.target.result;
             };
@@ -417,7 +416,6 @@
                 let fillVal = valMap[currentTool];
 
                 if (fillVal === 0) {
-                    // 육지(지우개) 브러시로 시설의 일부를 클릭한 경우 -> 연결된 전체 덩어리를 찾아 통째로 0(육지)으로 초기화
                     let bounds = findFacilityBounds(gx, gy);
                     if (bounds) {
                         for (let y = bounds.minY; y <= bounds.maxY; y++) {
@@ -435,7 +433,6 @@
                         if (dx*dx + dy*dy <= brushRadius*brushRadius) {
                             let px = gx + dx, py = gy + dy;
                             if (px >= 0 && px < 500 && py >= 0 && py < 500) {
-                                // 기존 시설이 있는 자리는 지형 브러시로 덮어씌워지지 않도록 보호
                                 if (gridData[py * 500 + px] < 4) {
                                     gridData[py * 500 + px] = fillVal;
                                 }
@@ -446,21 +443,20 @@
             } else if (currentTool === 'city') {
                 let w = isRotated ? 3 : 2;
                 let h = isRotated ? 2 : 3;
-                fillStamp(gx, gy, w, h, 4); // 시청 타입 4
+                fillStamp(gx, gy, w, h, 4);
             } else if (currentTool === 'port') {
                 let w = isRotated ? 10 : 5;
                 let h = isRotated ? 5 : 10;
-                fillStamp(gx, gy, w, h, 5); // 항구 타입 5
+                fillStamp(gx, gy, w, h, 5);
             } else if (currentTool === 'airport') {
                 let w = isRotated ? 50 : 10;
                 let h = isRotated ? 10 : 50;
-                fillStamp(gx, gy, w, h, 6); // 공항 타입 6
+                fillStamp(gx, gy, w, h, 6);
             }
             redrawGrid();
         }
 
         function fillStamp(startX, startY, w, h, typeVal) {
-            // 영역 내 기존에 있던 시설들이 걸쳐있으면 각각 통째로 지우고 새로 배치
             for (let dy = 0; dy < h; dy++) {
                 for (let dx = 0; dx < w; dx++) {
                     let px = startX + dx, py = startY + dy;
@@ -481,7 +477,6 @@
                     }
                 }
             }
-            // 새 시설 배치
             for (let dy = 0; dy < h; dy++) {
                 for (let dx = 0; dx < w; dx++) {
                     let px = startX + dx, py = startY + dy;
@@ -494,6 +489,11 @@
 
         function redrawGrid() {
             gridCtx.clearRect(0, 0, 500, 500);
+            
+            // 1. 기본 육지 배경을 모두 연두색(#4CAF50)으로 채움
+            gridCtx.fillStyle = '#4CAF50';
+            gridCtx.fillRect(0, 0, 500, 500);
+
             const colorMap = {
                 1: '#1A237E', // 바다
                 2: '#00BCD4', // 강
@@ -502,6 +502,8 @@
                 5: '#BDBDBD', // 항구
                 6: '#424242'  // 공항
             };
+
+            // 2. 육지(0)가 아닌 지형 및 시설만 덮어쓰기 렌더링
             for (let y = 0; y < 500; y++) {
                 for (let x = 0; x < 500; x++) {
                     let type = gridData[y * 500 + x];
@@ -539,7 +541,7 @@
             const canvas = document.getElementById('mapCanvas');
             const ctx = canvas.getContext('2d');
             
-            // 기본 육지 배경
+            // 공통 연두색 육지 배경
             ctx.fillStyle = '#4CAF50';
             ctx.fillRect(0, 0, 500, 500);
 
