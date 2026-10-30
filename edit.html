@@ -24,6 +24,26 @@
             justify-content: space-between;
             align-items: center;
         }
+        .mode-tabs {
+            display: flex;
+            background: #2a2a2a;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #444;
+        }
+        .mode-tab {
+            padding: 6px 14px;
+            background: #2a2a2a;
+            color: #aaa;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .mode-tab.active {
+            background: #2196F3;
+            color: white;
+        }
         #toolbar {
             background: #252525;
             padding: 8px 15px;
@@ -126,14 +146,29 @@
             font-weight: bold;
         }
         .action-btn:hover { background-color: #1e88e5; }
+        .gmap-options {
+            display: none;
+            background: #333;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            align-items: center;
+            gap: 8px;
+        }
     </style>
 </head>
 <body>
 
     <div id="header">
         <h3 style="margin:0;">🗺️ 500×500 맵 에디터 (셀 기반 덩어리 연동 시스템)</h3>
-        <div>
-            <button class="action-btn" onclick="openModal()">⚡ [독립 실행형 HTML 추출 및 내보내기]</button>
+        <div style="display:flex; align-items:center; gap:15px;">
+            <div class="mode-tabs">
+                <button class="mode-tab active" id="tabGeneral" onclick="switchMode('general')">일반 모드</button>
+                <button class="mode-tab" id="tabGmap" onclick="switchMode('gmap')">구글맵 모드</button>
+            </div>
+            <div>
+                <button class="action-btn" onclick="openModal()">⚡ [독립 실행형 HTML 추출 및 내보내기]</button>
+            </div>
         </div>
     </div>
 
@@ -144,6 +179,14 @@
         <label class="tool-btn" style="background:#4E342E; font-weight:bold;">
             📷 배경 이미지 분석 <input type="file" id="imageInput" accept="image/*" style="display:none;">
         </label>
+
+        <!-- 구글맵 모드 전용 옵션 -->
+        <div class="gmap-options" id="gmapOptions">
+            <span style="color:#00BCD4; font-weight:bold;">구글맵(#90D9ED) 인식:</span>
+            <label><input type="radio" name="gmapTarget" value="1" checked> 바다로 인식</label>
+            <label><input type="radio" name="gmapTarget" value="2"> 강으로 인식</label>
+        </div>
+
         <span style="color:#555;">|</span>
         
         <button class="tool-btn active" id="btnSea" onclick="setBrush('sea')">
@@ -178,6 +221,10 @@
 
         <label style="font-size:11px;">브러시: <input type="range" id="brushSize" min="1" max="15" value="3" style="width:40px;"></label>
         <span id="brushVal" style="font-size:11px; width:20px;">3px</span>
+
+        <span style="color:#555;">|</span>
+        <label style="font-size:11px;">그리드 투명도: <input type="range" id="opacityRange" min="0" max="1" step="0.05" value="0.85" style="width:60px;"></label>
+        <span id="opacityVal" style="font-size:11px; width:30px;">85%</span>
         
         <button class="tool-btn" onclick="resetView()">🔎 Zoom Reset</button>
     </div>
@@ -211,8 +258,8 @@
 
     <script>
         const GRID_SIZE = 500;
-        // 타입 정의: 0: 육지, 1: 바다, 2: 강, 3: 산, 4: 시청, 5: 항구, 6: 공항
         let gridData = new Uint8Array(GRID_SIZE * GRID_SIZE); 
+        let currentMode = 'general'; // general 또는 gmap
 
         const bgCanvas = document.getElementById('bgCanvas');
         const bgCtx = bgCanvas.getContext('2d');
@@ -235,6 +282,13 @@
         updateTransform();
         redrawGrid();
 
+        function switchMode(mode) {
+            currentMode = mode;
+            document.getElementById('tabGeneral').classList.toggle('active', mode === 'general');
+            document.getElementById('tabGmap').classList.toggle('active', mode === 'gmap');
+            document.getElementById('gmapOptions').style.display = (mode === 'gmap') ? 'flex' : 'none';
+        }
+
         function setBrush(tool) {
             currentTool = tool;
             document.querySelectorAll('.tool-btn').forEach(b => {
@@ -254,10 +308,16 @@
             document.getElementById('brushVal').innerText = brushRadius + 'px';
         };
 
-        // 특정 좌표(x, y)가 속한 시설 덩어리의 전체 bounding box(영역)를 찾아 반환하는 함수
+        // 투명도 슬라이더 이벤트 연결
+        document.getElementById('opacityRange').oninput = (e) => {
+            let val = parseFloat(e.target.value);
+            gridCanvas.style.opacity = val;
+            document.getElementById('opacityVal').innerText = Math.round(val * 100) + '%';
+        };
+
         function findFacilityBounds(startX, startY) {
             let targetType = gridData[startY * GRID_SIZE + startX];
-            if (targetType < 4) return null; // 지형(0~3)이면 시설이 아님
+            if (targetType < 4) return null;
 
             let minX = startX, maxX = startX;
             let minY = startY, maxY = startY;
@@ -287,7 +347,6 @@
             return { minX, maxX, minY, maxY, type: targetType };
         }
 
-        // 기존 맵 HTML 업로드 파싱 (시설 셀 타입 4, 5, 6 완벽 복원)
         document.getElementById('htmlUploadInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -312,7 +371,6 @@
             reader.readAsText(file);
         });
 
-        // 배경 이미지 자동 분석 (시설 셀 4,5,6은 보호)
         document.getElementById('imageInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -324,6 +382,8 @@
                     bgCtx.drawImage(img, 0, 0, 500, 500);
 
                     const imgData = bgCtx.getImageData(0, 0, 500, 500).data;
+                    let gmapTargetVal = parseInt(document.querySelector('input[name="gmapTarget"]:checked').value); // 1: 바다, 2: 강
+
                     for (let y = 0; y < 500; y++) {
                         for (let x = 0; x < 500; x++) {
                             let idx = (y * 500 + x) * 4;
@@ -331,10 +391,21 @@
                             if (currentVal >= 4) continue; // 기존 시설은 보호
 
                             let r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
-                            if (b > r + 30 && b > g + 20) {
-                                gridData[y * 500 + x] = (b > 160 && g > 100) ? 2 : 1;
+
+                            if (currentMode === 'gmap') {
+                                // #90D9ED (RGB: 144, 217, 237) 정밀 타겟팅 (오차 범위 ±10 허용)
+                                let isTargetColor = (r >= 134 && r <= 154 && g >= 207 && g <= 227 && b >= 227 && b <= 247);
+                                if (isTargetColor) {
+                                    gridData[y * 500 + x] = gmapTargetVal;
+                                } else {
+                                    gridData[y * 500 + x] = 0;
+                                }
                             } else {
-                                gridData[y * 500 + x] = 0;
+                                if (b > r + 30 && b > g + 20) {
+                                    gridData[y * 500 + x] = (b > 160 && g > 100) ? 2 : 1;
+                                } else {
+                                    gridData[y * 500 + x] = 0;
+                                }
                             }
                         }
                     }
@@ -417,7 +488,6 @@
                 let fillVal = valMap[currentTool];
 
                 if (fillVal === 0) {
-                    // 육지(지우개) 브러시로 시설의 일부를 클릭한 경우 -> 연결된 전체 덩어리를 찾아 통째로 0(육지)으로 초기화
                     let bounds = findFacilityBounds(gx, gy);
                     if (bounds) {
                         for (let y = bounds.minY; y <= bounds.maxY; y++) {
@@ -435,7 +505,6 @@
                         if (dx*dx + dy*dy <= brushRadius*brushRadius) {
                             let px = gx + dx, py = gy + dy;
                             if (px >= 0 && px < 500 && py >= 0 && py < 500) {
-                                // 기존 시설이 있는 자리는 지형 브러시로 덮어씌워지지 않도록 보호
                                 if (gridData[py * 500 + px] < 4) {
                                     gridData[py * 500 + px] = fillVal;
                                 }
@@ -446,21 +515,20 @@
             } else if (currentTool === 'city') {
                 let w = isRotated ? 3 : 2;
                 let h = isRotated ? 2 : 3;
-                fillStamp(gx, gy, w, h, 4); // 시청 타입 4
+                fillStamp(gx, gy, w, h, 4);
             } else if (currentTool === 'port') {
                 let w = isRotated ? 10 : 5;
                 let h = isRotated ? 5 : 10;
-                fillStamp(gx, gy, w, h, 5); // 항구 타입 5
+                fillStamp(gx, gy, w, h, 5);
             } else if (currentTool === 'airport') {
                 let w = isRotated ? 50 : 10;
                 let h = isRotated ? 10 : 50;
-                fillStamp(gx, gy, w, h, 6); // 공항 타입 6
+                fillStamp(gx, gy, w, h, 6);
             }
             redrawGrid();
         }
 
         function fillStamp(startX, startY, w, h, typeVal) {
-            // 영역 내 기존에 있던 시설들이 걸쳐있으면 각각 통째로 지우고 새로 배치
             for (let dy = 0; dy < h; dy++) {
                 for (let dx = 0; dx < w; dx++) {
                     let px = startX + dx, py = startY + dy;
@@ -481,7 +549,6 @@
                     }
                 }
             }
-            // 새 시설 배치
             for (let dy = 0; dy < h; dy++) {
                 for (let dx = 0; dx < w; dx++) {
                     let px = startX + dx, py = startY + dy;
@@ -539,17 +606,16 @@
             const canvas = document.getElementById('mapCanvas');
             const ctx = canvas.getContext('2d');
             
-            // 기본 육지 배경
             ctx.fillStyle = '#4CAF50';
             ctx.fillRect(0, 0, 500, 500);
 
             const colorMap = { 
-                1: '#1A237E', // 바다
-                2: '#00BCD4', // 강
-                3: '#1B5E20', // 산
-                4: '#FFFFFF', // 시청
-                5: '#BDBDBD', // 항구
-                6: '#424242'  // 공항
+                1: '#1A237E', 
+                2: '#00BCD4', 
+                3: '#1B5E20', 
+                4: '#FFFFFF', 
+                5: '#BDBDBD', 
+                6: '#424242'  
             };
 
             for (let y = 0; y < 500; y++) {
