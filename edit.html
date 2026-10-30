@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>500x500 맵 에디터 & 셀 연동 덩어리 시스템</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            color: #eee;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #header {
+            background: #1e1e1e;
+            padding: 10px 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #toolbar {
+            background: #252525;
+            padding: 8px 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            flex-wrap: wrap;
+        }
+        .tool-btn {
+            padding: 6px 10px;
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .tool-btn.active {
+            border-color: #00BCD4;
+            background: #444;
+            box-shadow: 0 0 5px rgba(0, 188, 212, 0.5);
+        }
+        .tool-btn:hover { background: #444; }
+        .color-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+        
+        #workspace {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #0a0a0a;
+            cursor: crosshair;
+        }
+        #canvas-wrapper {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            transform-origin: 0 0;
+            box-shadow: 0 0 15px rgba(0,0,0,0.8);
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            image-rendering: pixelated;
+        }
+        #bgCanvas { z-index: 1; }
+        #gridCanvas { z-index: 2; opacity: 0.85; }
+
+        #controls-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(30,30,30,0.85);
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            font-size: 12px;
+            pointer-events: none;
+        }
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.7);
+            z-index: 999;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #222;
+            width: 700px;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #555;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        textarea {
+            width: 100%;
+            height: 220px;
+            background: #111;
+            color: #00ff00;
+            font-family: monospace;
+            padding: 10px;
+            border: 1px solid #444;
+            resize: none;
+        }
+        .action-btn {
+            padding: 8px 16px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .action-btn:hover { background-color: #1e88e5; }
+    </style>
+</head>
+<body>
+
+    <div id="header">
+        <h3 style="margin:0;">🗺️ 500×500 맵 에디터 (셀 기반 덩어리 연동 시스템)</h3>
+        <div>
+            <button class="action-btn" onclick="openModal()">⚡ [독립 실행형 HTML 추출 및 내보내기]</button>
+        </div>
+    </div>
+
+    <div id="toolbar">
+        <label class="tool-btn" style="background:#00838F; font-weight:bold;">
+            📁 맵 파일 업로드 <input type="file" id="htmlUploadInput" accept=".html" style="display:none;">
+        </label>
+        <label class="tool-btn" style="background:#4E342E; font-weight:bold;">
+            📷 배경 이미지 분석 <input type="file" id="imageInput" accept="image/*" style="display:none;">
+        </label>
+        <span style="color:#555;">|</span>
+        
+        <button class="tool-btn active" id="btnSea" onclick="setBrush('sea')">
+            <span class="color-dot" style="background:#1A237E;"></span> 바다
+        </button>
+        <button class="tool-btn" id="btnRiver" onclick="setBrush('river')">
+            <span class="color-dot" style="background:#00BCD4;"></span> 강
+        </button>
+        <button class="tool-btn" id="btnLand" onclick="setBrush('land')">
+            <span class="color-dot" style="background:#4CAF50;"></span> 육지 (지우개)
+        </button>
+        <button class="tool-btn" id="btnMountain" onclick="setBrush('mountain')">
+            <span class="color-dot" style="background:#1B5E20;"></span> 산
+        </button>
+        <span style="color:#555;">|</span>
+        
+        <button class="tool-btn" id="btnCity" onclick="setBrush('city')">
+            <span class="color-dot" style="background:#FFFFFF;"></span> 시청 (2*3)
+        </button>
+        <button class="tool-btn" id="btnPort" onclick="setBrush('port')">
+            <span class="color-dot" style="background:#BDBDBD;"></span> 항구 (5*10)
+        </button>
+        <button class="tool-btn" id="btnAirport" onclick="setBrush('airport')">
+            <span class="color-dot" style="background:#424242;"></span> 공항 (10*50)
+        </button>
+        <span style="color:#555;">|</span>
+
+        <button class="tool-btn" id="btnRotate" onclick="toggleRotation()" style="background:#FF8F00; color:#fff; font-weight:bold;">
+            🔄 방향: <span id="rotText">가로</span>
+        </button>
+        <span style="color:#555;">|</span>
+
+        <label style="font-size:11px;">브러시: <input type="range" id="brushSize" min="1" max="15" value="3" style="width:40px;"></label>
+        <span id="brushVal" style="font-size:11px; width:20px;">3px</span>
+        
+        <button class="tool-btn" onclick="resetView()">🔎 Zoom Reset</button>
+    </div>
+
+    <div id="workspace">
+        <div id="canvas-wrapper">
+            <canvas id="bgCanvas" width="500" height="500"></canvas>
+            <canvas id="gridCanvas" width="500" height="500"></canvas>
+        </div>
+        <div id="controls-overlay">
+            좌표: <span id="coord">X: -, Y: -</span> | 확대: <span id="zoomScale">100%</span><br>
+            💡 시설의 어떤 한 픽셀이라도 육지(지우개)로 칠하면 연결된 전체 시설 규격 칸이 통째로 지워집니다!
+        </div>
+    </div>
+
+    <!-- HTML 추출 모달 -->
+    <div id="modal">
+        <div class="modal-content">
+            <h4 style="margin:0;">📜 맵 파일 내보내기 설정</h4>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
+                <label style="font-size:13px; font-weight:bold;">저장할 파일 이름:</label>
+                <input type="text" id="fileNameInput" value="map_seoul_500x500.html" style="flex:1; background:#111; color:#fff; border:1px solid #555; padding:6px; border-radius:4px;">
+            </div>
+            <textarea id="codeOutput" readonly></textarea>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button class="action-btn" style="background:#555;" onclick="closeModal()">닫기</button>
+                <button class="action-btn" onclick="downloadHTML()">💾 지정된 이름으로 다운로드</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GRID_SIZE = 500;
+        // 타입 정의: 0: 육지, 1: 바다, 2: 강, 3: 산, 4: 시청, 5: 항구, 6: 공항
+        let gridData = new Uint8Array(GRID_SIZE * GRID_SIZE); 
+
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        const gridCanvas = document.getElementById('gridCanvas');
+        const gridCtx = gridCanvas.getContext('2d');
+        const wrapper = document.getElementById('canvas-wrapper');
+        const workspace = document.getElementById('workspace');
+
+        let currentTool = 'sea';
+        let isDrawing = false;
+        let isPanning = false;
+        let brushRadius = 3;
+        let isRotated = false;
+
+        let scale = 1.2;
+        let panX = 100;
+        let panY = 50;
+        let startPanX = 0, startPanY = 0;
+
+        updateTransform();
+        redrawGrid();
+
+        function setBrush(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-btn').forEach(b => {
+                if(!b.innerText.includes('업로드') && !b.innerText.includes('방향')) b.classList.remove('active');
+            });
+            const btnMap = { sea: 'btnSea', river: 'btnRiver', land: 'btnLand', mountain: 'btnMountain', city: 'btnCity', port: 'btnPort', airport: 'btnAirport' };
+            if(btnMap[tool]) document.getElementById(btnMap[tool]).classList.add('active');
+        }
+
+        function toggleRotation() {
+            isRotated = !isRotated;
+            document.getElementById('rotText').innerText = isRotated ? "세로" : "가로";
+        }
+
+        document.getElementById('brushSize').oninput = (e) => {
+            brushRadius = parseInt(e.target.value);
+            document.getElementById('brushVal').innerText = brushRadius + 'px';
+        };
+
+        // 특정 좌표(x, y)가 속한 시설 덩어리의 전체 bounding box(영역)를 찾아 반환하는 함수
+        function findFacilityBounds(startX, startY) {
+            let targetType = gridData[startY * GRID_SIZE + startX];
+            if (targetType < 4) return null; // 지형(0~3)이면 시설이 아님
+
+            let minX = startX, maxX = startX;
+            let minY = startY, maxY = startY;
+            let visited = new Uint8Array(GRID_SIZE * GRID_SIZE);
+            let queue = [[startX, startY]];
+            visited[startY * GRID_SIZE + startX] = 1;
+
+            let head = 0;
+            while(head < queue.length) {
+                let [cx, cy] = queue[head++];
+                if (cx < minX) minX = cx;
+                if (cx > maxX) maxX = cx;
+                if (cy < minY) minY = cy;
+                if (cy > maxY) maxY = cy;
+
+                let neighbors = [[cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]];
+                for (let [nx, ny] of neighbors) {
+                    if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE) {
+                        let idx = ny * GRID_SIZE + nx;
+                        if (!visited[idx] && gridData[idx] === targetType) {
+                            visited[idx] = 1;
+                            queue.push([nx, ny]);
+                        }
+                    }
+                }
+            }
+            return { minX, maxX, minY, maxY, type: targetType };
+        }
+
+        // 기존 맵 HTML 업로드 파싱 (시설 셀 타입 4, 5, 6 완벽 복원)
+        document.getElementById('htmlUploadInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const content = event.target.result;
+                const matchGrid = content.match(/const\s+gridData\s*=\s*new\s+Uint8Array\s*\(\s*\[([\d,\s]+)\]\s*\)/);
+                
+                if (matchGrid && matchGrid[1]) {
+                    const parsedArray = matchGrid[1].split(',').map(num => parseInt(num.trim(), 10));
+                    if (parsedArray.length === GRID_SIZE * GRID_SIZE) {
+                        gridData = new Uint8Array(parsedArray);
+                        redrawGrid();
+                        alert("맵 파일이 성공적으로 로드되었습니다!");
+                    } else {
+                        alert("데이터 크기가 일치하지 않습니다.");
+                    }
+                } else {
+                    alert("지원하지 않거나 올바르지 않은 맵 파일 형식입니다.");
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // 배경 이미지 자동 분석 (시설 셀 4,5,6은 보호)
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    bgCtx.clearRect(0, 0, 500, 500);
+                    bgCtx.drawImage(img, 0, 0, 500, 500);
+
+                    const imgData = bgCtx.getImageData(0, 0, 500, 500).data;
+                    for (let y = 0; y < 500; y++) {
+                        for (let x = 0; x < 500; x++) {
+                            let idx = (y * 500 + x) * 4;
+                            let currentVal = gridData[y * 500 + x];
+                            if (currentVal >= 4) continue; // 기존 시설은 보호
+
+                            let r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
+                            if (b > r + 30 && b > g + 20) {
+                                gridData[y * 500 + x] = (b > 160 && g > 100) ? 2 : 1;
+                            } else {
+                                gridData[y * 500 + x] = 0;
+                            }
+                        }
+                    }
+                    redrawGrid();
+                    alert("배경 이미지 분석 완료!");
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function updateTransform() {
+            wrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+            document.getElementById('zoomScale').innerText = Math.round(scale * 100) + '%';
+        }
+
+        function resetView() {
+            scale = 1.0;
+            panX = (workspace.clientWidth - 500) / 2;
+            panY = (workspace.clientHeight - 500) / 2;
+            updateTransform();
+        }
+
+        workspace.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomFactor = 1.15;
+            let newScale = e.deltaY < 0 ? scale * zoomFactor : scale / zoomFactor;
+            newScale = Math.max(0.5, Math.min(15, newScale));
+
+            const rect = workspace.getBoundingClientRect();
+            let mouseX = e.clientX - rect.left;
+            let mouseY = e.clientY - rect.top;
+
+            panX = mouseX - (mouseX - panX) * (newScale / scale);
+            panY = mouseY - (mouseY - panY) * (newScale / scale);
+            scale = newScale;
+            updateTransform();
+        });
+
+        workspace.addEventListener('contextmenu', e => e.preventDefault());
+        workspace.addEventListener('mousedown', (e) => {
+            if (e.button === 2) {
+                isPanning = true;
+                startPanX = e.clientX - panX;
+                startPanY = e.clientY - panY;
+            } else if (e.button === 0) {
+                isDrawing = true;
+                paint(e);
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            const rect = wrapper.getBoundingClientRect();
+            let gx = Math.floor((e.clientX - rect.left) / scale);
+            let gy = Math.floor((e.clientY - rect.top) / scale);
+
+            if (gx >= 0 && gx < 500 && gy >= 0 && gy < 500) {
+                document.getElementById('coord').innerText = `X: ${gx}, Y: ${gy}`;
+            }
+
+            if (isPanning) {
+                panX = e.clientX - startPanX;
+                panY = e.clientY - startPanY;
+                updateTransform();
+            } else if (isDrawing) {
+                paint(e);
+            }
+        });
+
+        window.addEventListener('mouseup', () => { isPanning = false; isDrawing = false; });
+
+        function paint(e) {
+            const rect = wrapper.getBoundingClientRect();
+            let gx = Math.floor((e.clientX - rect.left) / scale);
+            let gy = Math.floor((e.clientY - rect.top) / scale);
+            if (gx < 0 || gx >= 500 || gy < 0 || gy >= 500) return;
+
+            if (['sea', 'river', 'land', 'mountain'].includes(currentTool)) {
+                let valMap = { sea: 1, river: 2, land: 0, mountain: 3 };
+                let fillVal = valMap[currentTool];
+
+                if (fillVal === 0) {
+                    // 육지(지우개) 브러시로 시설의 일부를 클릭한 경우 -> 연결된 전체 덩어리를 찾아 통째로 0(육지)으로 초기화
+                    let bounds = findFacilityBounds(gx, gy);
+                    if (bounds) {
+                        for (let y = bounds.minY; y <= bounds.maxY; y++) {
+                            for (let x = bounds.minX; x <= bounds.maxX; x++) {
+                                if (gridData[y * GRID_SIZE + x] === bounds.type) {
+                                    gridData[y * GRID_SIZE + x] = 0;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                for (let dy = -brushRadius; dy <= brushRadius; dy++) {
+                    for (let dx = -brushRadius; dx <= brushRadius; dx++) {
+                        if (dx*dx + dy*dy <= brushRadius*brushRadius) {
+                            let px = gx + dx, py = gy + dy;
+                            if (px >= 0 && px < 500 && py >= 0 && py < 500) {
+                                // 기존 시설이 있는 자리는 지형 브러시로 덮어씌워지지 않도록 보호
+                                if (gridData[py * 500 + px] < 4) {
+                                    gridData[py * 500 + px] = fillVal;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (currentTool === 'city') {
+                let w = isRotated ? 3 : 2;
+                let h = isRotated ? 2 : 3;
+                fillStamp(gx, gy, w, h, 4); // 시청 타입 4
+            } else if (currentTool === 'port') {
+                let w = isRotated ? 10 : 5;
+                let h = isRotated ? 5 : 10;
+                fillStamp(gx, gy, w, h, 5); // 항구 타입 5
+            } else if (currentTool === 'airport') {
+                let w = isRotated ? 50 : 10;
+                let h = isRotated ? 10 : 50;
+                fillStamp(gx, gy, w, h, 6); // 공항 타입 6
+            }
+            redrawGrid();
+        }
+
+        function fillStamp(startX, startY, w, h, typeVal) {
+            // 영역 내 기존에 있던 시설들이 걸쳐있으면 각각 통째로 지우고 새로 배치
+            for (let dy = 0; dy < h; dy++) {
+                for (let dx = 0; dx < w; dx++) {
+                    let px = startX + dx, py = startY + dy;
+                    if (px < 500 && py < 500) {
+                        let existing = gridData[py * GRID_SIZE + px];
+                        if (existing >= 4) {
+                            let bounds = findFacilityBounds(px, py);
+                            if (bounds) {
+                                for (let y = bounds.minY; y <= bounds.maxY; y++) {
+                                    for (let x = bounds.minX; x <= bounds.maxX; x++) {
+                                        if (gridData[y * GRID_SIZE + x] === bounds.type) {
+                                            gridData[y * GRID_SIZE + x] = 0;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // 새 시설 배치
+            for (let dy = 0; dy < h; dy++) {
+                for (let dx = 0; dx < w; dx++) {
+                    let px = startX + dx, py = startY + dy;
+                    if (px < 500 && py < 500) {
+                        gridData[py * 500 + px] = typeVal;
+                    }
+                }
+            }
+        }
+
+        function redrawGrid() {
+            gridCtx.clearRect(0, 0, 500, 500);
+            const colorMap = {
+                1: '#1A237E', // 바다
+                2: '#00BCD4', // 강
+                3: '#1B5E20', // 산
+                4: '#FFFFFF', // 시청
+                5: '#BDBDBD', // 항구
+                6: '#424242'  // 공항
+            };
+            for (let y = 0; y < 500; y++) {
+                for (let x = 0; x < 500; x++) {
+                    let type = gridData[y * 500 + x];
+                    if (type > 0 && colorMap[type]) {
+                        gridCtx.fillStyle = colorMap[type];
+                        gridCtx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+        }
+
+        function openModal() {
+            document.getElementById('modal').style.display = 'flex';
+            generateHTMLCode();
+        }
+        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+        function generateHTMLCode() {
+            let dataStr = Array.from(gridData).join(',');
+            let htmlCode = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>500x500 완성 맵 뷰어</title>
+    <style>
+        body { margin:0; background:#000; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
+        #mapCanvas { width:500px; height:500px; box-shadow:0 0 20px rgba(255,255,255,0.2); image-rendering:pixelated; }
+    </style>
+</head>
+<body>
+    <canvas id="mapCanvas" width="500" height="500"></canvas>
+    <script>
+        const gridData = new Uint8Array([${dataStr}]);
+        window.onload = function() {
+            const canvas = document.getElementById('mapCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 기본 육지 배경
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(0, 0, 500, 500);
+
+            const colorMap = { 
+                1: '#1A237E', // 바다
+                2: '#00BCD4', // 강
+                3: '#1B5E20', // 산
+                4: '#FFFFFF', // 시청
+                5: '#BDBDBD', // 항구
+                6: '#424242'  // 공항
+            };
+
+            for (let y = 0; y < 500; y++) {
+                for (let x = 0; x < 500; x++) {
+                    let t = gridData[y * 500 + x];
+                    if (colorMap[t]) {
+                        ctx.fillStyle = colorMap[t];
+                        ctx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+        };
+    <\/script>
+</body>
+</html>`;
+            document.getElementById('codeOutput').value = htmlCode;
+        }
+
+        function downloadHTML() {
+            const code = document.getElementById('codeOutput').value;
+            let customName = document.getElementById('fileNameInput').value.trim() || 'map_500x500.html';
+            if (!customName.endsWith('.html')) customName += '.html';
+
+            const blob = new Blob([code], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = customName;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        window.onload = () => { resetView(); };
+    </script>
+</body>
+</html>
