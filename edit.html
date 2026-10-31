@@ -170,7 +170,7 @@
 <body>
 
     <div id="header">
-        <h3 style="margin:0;">🗺️ 500×500 맵 에디터_2610312035</h3>
+        <h3 style="margin:0;">🗺️ 500×500 맵 에디터 & 구글맵 영역 분할 채우기 시스템</h3>
         <div style="display:flex; align-items:center; gap:15px;">
             <div class="mode-tabs">
                 <button class="mode-tab active" id="tabGeneral" onclick="switchMode('general')">일반 모드</button>
@@ -316,8 +316,7 @@
         // 채우기 관련 변수
         let isFillingActive = false;
         let fillLinePixels = []; 
-        let regionA = null;
-        let regionB = null;
+        let regions = []; // 모든 분할된 구역들을 저장하는 배열
         let activeRegionPixels = null; 
         let lastCoord = null;
         let brushBeforeFill = 'sea';
@@ -340,16 +339,14 @@
                     }
                     isFillingActive = true;
                     fillLinePixels = [];
-                    regionA = null;
-                    regionB = null;
+                    regions = [];
                     activeRegionPixels = null;
                 }
             } else {
                 isFillingActive = false;
                 currentTool = tool;
                 fillLinePixels = [];
-                regionA = null;
-                regionB = null;
+                regions = [];
                 activeRegionPixels = null;
             }
 
@@ -524,7 +521,7 @@
                 let gy = Math.floor((e.clientY - rect.top) / scale);
                 lastCoord = { x: gx, y: gy };
 
-                if (isFillingActive && !regionA) {
+                if (isFillingActive && regions.length === 0) {
                     fillLinePixels = []; 
                 }
                 paint(e);
@@ -550,7 +547,7 @@
         });
 
         window.addEventListener('mouseup', (e) => { 
-            if (isDrawing && isFillingActive && !regionA) {
+            if (isDrawing && isFillingActive && regions.length === 0) {
                 checkAndSplitRegions();
             }
             isPanning = false; 
@@ -560,19 +557,19 @@
 
         // 더블클릭 이벤트 리스너 추가
         workspace.addEventListener('dblclick', (e) => {
-            if (!isFillingActive || !regionA || !regionB) return;
+            if (!isFillingActive || regions.length === 0) return;
             const rect = wrapper.getBoundingClientRect();
             let gx = Math.floor((e.clientX - rect.left) / scale);
             let gy = Math.floor((e.clientY - rect.top) / scale);
             if (gx < 0 || gx >= 500 || gy < 0 || gy >= 500) return;
 
             let clickedIdx = gy * GRID_SIZE + gx;
-            if (regionA.has(clickedIdx)) {
-                activeRegionPixels = regionA;
-                document.getElementById('fillPopup').style.display = 'flex';
-            } else if (regionB.has(clickedIdx)) {
-                activeRegionPixels = regionB;
-                document.getElementById('fillPopup').style.display = 'flex';
+            for (let reg of regions) {
+                if (reg.has(clickedIdx)) {
+                    activeRegionPixels = reg;
+                    document.getElementById('fillPopup').style.display = 'flex';
+                    break;
+                }
             }
         });
 
@@ -608,7 +605,7 @@
             if (gx < 0 || gx >= 500 || gy < 0 || gy >= 500) return;
 
             if (isFillingActive) {
-                if (isDrawing && !regionA) {
+                if (isDrawing && regions.length === 0) {
                     if (lastCoord) {
                         let linePts = getLinePixels(lastCoord.x, lastCoord.y, gx, gy);
                         for (let pt of linePts) {
@@ -679,83 +676,53 @@
             redrawGrid();
         }
 
+        // 보라색 선으로 나눠진 모든 독립된 닫힌 구역들을 Flood Fill 방식으로 전수 탐색
         function checkAndSplitRegions() {
             if (fillLinePixels.length === 0) return;
 
-            let touchesEdge = false;
             let lineSet = new Set(fillLinePixels);
-
-            for (let idx of lineSet) {
-                let x = idx % GRID_SIZE;
-                let y = Math.floor(idx / GRID_SIZE);
-                if (x === 0 || x === GRID_SIZE - 1 || y === 0 || y === GRID_SIZE - 1) {
-                    touchesEdge = true;
-                    break;
-                }
-            }
-
-            if (!touchesEdge) {
-                alert("선 양쪽 끝이 맵 끝(가장자리)에 닿아야 구역이 나뉩니다!");
-                fillLinePixels = [];
-                redrawGrid();
-                return;
-            }
-
-            regionA = new Set();
-            regionB = new Set();
             let visited = new Uint8Array(GRID_SIZE * GRID_SIZE);
-            for(let idx of lineSet) visited[idx] = 1;
+            for (let idx of lineSet) visited[idx] = 1;
 
-            let candidates = [[100, 100], [400, 400], [100, 400], [400, 100]];
-            let foundSeeds = [];
+            regions = [];
 
-            for (let [sx, sy] of candidates) {
-                let sIdx = sy * GRID_SIZE + sx;
-                if (!visited[sIdx]) {
-                    foundSeeds.push(sIdx);
-                }
-            }
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    let startIdx = y * GRID_SIZE + x;
+                    if (!visited[startIdx]) {
+                        // 새로운 닫힌 구역 발견 시 BFS로 전체 영역 수집
+                        let currentRegion = new Set();
+                        let queue = [startIdx];
+                        visited[startIdx] = 1;
 
-            if (foundSeeds.length >= 2) {
-                let queue = [foundSeeds[0]];
-                visited[foundSeeds[0]] = 1;
-                while(queue.length > 0) {
-                    let curr = queue.shift();
-                    regionA.add(curr);
-                    let cx = curr % GRID_SIZE;
-                    let cy = Math.floor(curr / GRID_SIZE);
-                    let neighbors = [[cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]];
-                    for(let [nx, ny] of neighbors) {
-                        if(nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE) {
-                            let nIdx = ny * GRID_SIZE + nx;
-                            if(!visited[nIdx]) {
-                                visited[nIdx] = 1;
-                                queue.push(nIdx);
-                            }
-                        }
-                    }
-                }
+                        while (queue.length > 0) {
+                            let curr = queue.shift();
+                            currentRegion.add(curr);
+                            let cx = curr % GRID_SIZE;
+                            let cy = Math.floor(curr / GRID_SIZE);
 
-                if (!regionA.has(foundSeeds[1])) {
-                    queue = [foundSeeds[1]];
-                    visited[foundSeeds[1]] = 1;
-                    while(queue.length > 0) {
-                        let curr = queue.shift();
-                        regionB.add(curr);
-                        let cx = curr % GRID_SIZE;
-                        let cy = Math.floor(curr / GRID_SIZE);
-                        let neighbors = [[cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]];
-                        for(let [nx, ny] of neighbors) {
-                            if(nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE) {
-                                let nIdx = ny * GRID_SIZE + nx;
-                                if(!visited[nIdx]) {
-                                    visited[nIdx] = 1;
-                                    queue.push(nIdx);
+                            let neighbors = [[cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]];
+                            for (let [nx, ny] of neighbors) {
+                                if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE) {
+                                    let nIdx = ny * GRID_SIZE + nx;
+                                    if (!visited[nIdx]) {
+                                        visited[nIdx] = 1;
+                                        queue.push(nIdx);
+                                    }
                                 }
                             }
                         }
+                        if (currentRegion.size > 10) { // 너무 작은 노이즈 픽셀은 제외
+                            regions.push(currentRegion);
+                        }
                     }
                 }
+            }
+
+            if (regions.length < 2) {
+                alert("선이 맵을 올바르게 두 개 이상의 구역으로 나누지 못했습니다.");
+                fillLinePixels = [];
+                regions = [];
             }
             redrawGrid();
         }
@@ -792,8 +759,7 @@
 
             closeFillPopup();
             activeRegionPixels = null;
-            regionA = null;
-            regionB = null;
+            regions = [];
             fillLinePixels = [];
             setBrush(brushBeforeFill);
             redrawGrid();
@@ -809,8 +775,10 @@
                         if (existing >= 4) {
                             let bounds = findFacilityBounds(px, py);
                             if (bounds) {
-                                for (let y = bounds.minY; y <= bounds.maxY; y++) {
-                                    for (let x = bounds.minX; x <= bounds.maxX; x++) {
+                                let yMin = bounds.minY, yMax = bounds.maxY;
+                                let xMin = bounds.minX, xMax = bounds.maxX;
+                                for (let y = yMin; y <= yMax; y++) {
+                                    for (let x = xMin; x <= xMax; x++) {
                                         if (gridData[y * GRID_SIZE + x] === bounds.type) {
                                             gridData[y * GRID_SIZE + x] = 0;
                                         }
@@ -843,17 +811,25 @@
                 6: '#424242'  
             };
 
+            const regionColors = ['#7b1fa2', '#512da8', '#303f9f', '#00796b', '#c2185b', '#e65100'];
+
             for (let y = 0; y < 500; y++) {
                 for (let x = 0; x < 500; x++) {
                     let idx = y * 500 + x;
                     let type = gridData[idx];
 
                     if (isFillingActive) {
-                        if (regionA && regionA.has(idx)) {
-                            gridCtx.fillStyle = '#7b1fa2'; 
-                        } else if (regionB && regionB.has(idx)) {
-                            gridCtx.fillStyle = '#512da8'; 
-                        } else {
+                        let drawn = false;
+                        if (regions.length > 0) {
+                            for (let i = 0; i < regions.length; i++) {
+                                if (regions[i].has(idx)) {
+                                    gridCtx.fillStyle = regionColors[i % regionColors.length];
+                                    drawn = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!drawn) {
                             gridCtx.fillStyle = '#555555'; 
                         }
                     } else {
