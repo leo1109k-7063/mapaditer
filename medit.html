@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>📱 500×500 모바일 맵 에디터</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            background-color: #0d0f12;
+            color: #ecefe6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+        #workspace {
+            touch-action: none;
+            cursor: crosshair;
+        }
+        #canvas-wrapper {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            transform-origin: 0 0;
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.9);
+            touch-action: none;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            image-rendering: pixelated;
+        }
+        #bgCanvas { z-index: 1; }
+        #gridCanvas { z-index: 2; opacity: 0.85; }
+
+        /* Mobile Bottom Sheet Animation */
+        .bottom-sheet {
+            transition: transform 0.25s cubic-bezier(0.1, 0.9, 0.2, 1);
+        }
+        .bottom-sheet.collapsed {
+            transform: translateY(calc(100% - 56px));
+        }
+
+        /* Custom Scrollbar for tools */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between select-none">
+
+    <!-- Top Header -->
+    <header class="bg-gray-900 border-b border-gray-800 px-3 py-2 flex items-center justify-between z-30 shrink-0">
+        <div class="flex items-center space-x-2">
+            <span class="text-xl">🗺️</span>
+            <div>
+                <h1 class="text-sm font-bold leading-tight">500×500 맵 에디터</h1>
+                <p id="coord" class="text-[10px] text-cyan-400 font-mono">X: -, Y: - | Scale: 100%</p>
+            </div>
+        </div>
+        
+        <!-- Mode Switcher -->
+        <div class="flex items-center bg-gray-800 p-0.5 rounded-lg border border-gray-700">
+            <button id="tabGeneral" onclick="switchMode('general')" class="px-2.5 py-1 text-xs font-semibold rounded-md transition-colors bg-cyan-600 text-white">일반</button>
+            <button id="tabGmap" onclick="switchMode('gmap')" class="px-2.5 py-1 text-xs font-semibold rounded-md transition-colors text-gray-400">구글맵</button>
+        </div>
+    </header>
+
+    <!-- Map Canvas Workspace -->
+    <main id="workspace" class="relative flex-1 w-full bg-neutral-950 overflow-hidden">
+        <div id="canvas-wrapper">
+            <canvas id="bgCanvas" width="500" height="500"></canvas>
+            <canvas id="gridCanvas" width="500" height="500"></canvas>
+        </div>
+
+        <!-- Floating Quick Controls -->
+        <div class="absolute top-3 left-3 z-20 flex flex-col gap-2">
+            <button onclick="resetView()" class="w-11 h-11 bg-gray-900/90 backdrop-blur border border-gray-700 rounded-full flex items-center justify-center text-lg shadow-lg active:scale-95 transition-transform" title="화면 리셋">
+                🎯
+            </button>
+            <button onclick="openExportModal()" class="w-11 h-11 bg-cyan-600/90 backdrop-blur border border-cyan-400/50 rounded-full flex items-center justify-center text-lg shadow-lg active:scale-95 transition-transform text-white" title="내보내기">
+                💾
+            </button>
+        </div>
+
+        <!-- Google Maps Preset Toolbar (Google Mode Only) -->
+        <div id="gmapOptions" class="hidden absolute top-3 right-3 z-20 bg-gray-900/90 backdrop-blur border border-cyan-500/40 p-2 rounded-xl text-xs space-y-1 shadow-xl">
+            <div class="text-[10px] font-bold text-cyan-400">구글맵 수계 감지</div>
+            <label class="flex items-center space-x-1">
+                <input type="radio" name="gmapTarget" value="1" checked class="accent-cyan-500">
+                <span>바다로 인식</span>
+            </label>
+            <label class="flex items-center space-x-1">
+                <input type="radio" name="gmapTarget" value="2" class="accent-cyan-500">
+                <span>강으로 인식</span>
+            </label>
+        </div>
+    </main>
+
+    <!-- Mobile Collapsible Floating Bottom Sheet Toolbar -->
+    <div id="bottomSheet" class="bottom-sheet fixed bottom-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-md border-t border-gray-800 rounded-t-2xl shadow-2xl flex flex-col max-h-[85vh]">
+        
+        <!-- Sheet Handle/Header -->
+        <div onclick="toggleSheet()" class="w-full py-2 flex flex-col items-center justify-center cursor-pointer shrink-0 border-b border-gray-800/50">
+            <div class="w-10 h-1 bg-gray-600 rounded-full mb-1"></div>
+            <div class="flex items-center justify-between w-full px-4 text-xs text-gray-400 font-medium">
+                <span id="activeToolLabel">현재 도구: 🌊 바다</span>
+                <span id="sheetToggleText" class="text-cyan-400 font-bold">펼치기 ▲</span>
+            </div>
+        </div>
+
+        <!-- Toolbar Scrollable Body -->
+        <div class="p-4 space-y-4 overflow-y-auto no-scrollbar pb-8">
+            
+            <!-- File Import Section -->
+            <div class="grid grid-cols-2 gap-2">
+                <label class="flex items-center justify-center gap-1.5 h-11 bg-gray-800 active:bg-gray-700 border border-gray-700 rounded-xl text-xs font-semibold cursor-pointer">
+                    📁 맵 HTML 로드
+                    <input type="file" id="htmlUploadInput" accept=".html" class="hidden">
+                </label>
+                <label class="flex items-center justify-center gap-1.5 h-11 bg-gray-800 active:bg-gray-700 border border-gray-700 rounded-xl text-xs font-semibold cursor-pointer">
+                    📷 이미지 분석
+                    <input type="file" id="imageInput" accept="image/*" class="hidden">
+                </label>
+            </div>
+
+            <!-- Terrain Brushes -->
+            <div>
+                <p class="text-[11px] text-gray-400 font-bold mb-2">지형 브러시</p>
+                <div class="grid grid-cols-5 gap-2">
+                    <button id="btnSea" onclick="setBrush('sea')" class="tool-btn active flex flex-col items-center justify-center h-12 bg-gray-800 border-2 border-cyan-500 rounded-xl text-xs font-bold">
+                        <span class="w-3.5 h-3.5 rounded-full bg-[#1A237E] border border-white/20 mb-0.5"></span>
+                        바다
+                    </button>
+                    <button id="btnRiver" onclick="setBrush('river')" class="tool-btn flex flex-col items-center justify-center h-12 bg-gray-800 border border-gray-700 rounded-xl text-xs font-bold">
+                        <span class="w-3.5 h-3.5 rounded-full bg-[#00BCD4] border border-white/20 mb-0.5"></span>
+                        강
+                    </button>
+                    <button id="btnLand" onclick="setBrush('land')" class="tool-btn flex flex-col items-center justify-center h-12 bg-gray-800 border border-gray-700 rounded-xl text-xs font-bold">
+                        <span class="w-3.5 h-3.5 rounded-full bg-[#4CAF50] border border-white/20 mb-0.5"></span>
+                        육지
+                    </button>
+                    <button id="btnMountain" onclick="setBrush('mountain')" class="tool-btn flex flex-col items-center justify-center h-12 bg-gray-800 border border-gray-700 rounded-xl text-xs font-bold">
+                        <span class="w-3.5 h-3.5 rounded-full bg-[#1B5E20] border border-white/20 mb-0.5"></span>
+                        산지
+                    </button>
+                    <button id="btnFill" onclick="setBrush('fill')" class="tool-btn flex flex-col items-center justify-center h-12 bg-purple-900/60 border border-purple-500 text-purple-200 rounded-xl text-xs font-bold">
+                        🪣 채우기
+                    </button>
+                </div>
+            </div>
+
+            <!-- Facility Stamps -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-[11px] text-gray-400 font-bold">건물 및 시설 스탬프</p>
+                    <button id="btnRotate" onclick="toggleRotation()" class="px-3 py-1 bg-amber-600/30 border border-amber-500/60 text-amber-300 rounded-lg text-xs font-bold flex items-center gap-1">
+                        🔄 방향: <span id="rotText">가로</span>
+                    </button>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <button id="btnCity" onclick="setBrush('city')" class="tool-btn flex items-center justify-center gap-2 h-11 bg-gray-800 border border-gray-700 rounded-xl text-xs font-bold">
+                        <span class="w-3.5 h-3.5 bg-white rounded-sm"></span> 시청 (2×3)
+                    </button>
+                    <button id="btnPort" onclick="setBrush('port')" class="tool-btn flex items-center justify-center gap-2 h-11 bg-gray-800 border border-gray-700 rounded-xl text-xs font-bold">
+                        <span class="w-3.5 h-3.5 bg-gray-400 rounded-sm"></span> 항구 (5×10)
+                    </button>
+                    <button id="btnAirport" onclick="setBrush('airport')" class="tool-btn flex items-center justify-center gap-2 h-11 bg-gray-800 border border-gray-700 rounded-xl text-xs font-bold">
+                        <span class="w-3.5 h-3.5 bg-gray-600 rounded-sm"></span> 공항 (10×50)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Size & Opacity Controls -->
+            <div class="grid grid-cols-2 gap-4 pt-1">
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-400">브러시 크기</span>
+                        <span id="brushVal" class="font-bold text-cyan-400">3px</span>
+                    </div>
+                    <input type="range" id="brushSize" min="1" max="15" value="3" class="w-full h-2 bg-gray-700 rounded-lg appearance-none accent-cyan-500">
+                </div>
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-400">그리드 투명도</span>
+                        <span id="opacityVal" class="font-bold text-cyan-400">85%</span>
+                    </div>
+                    <input type="range" id="opacityRange" min="0" max="1" step="0.05" value="0.85" class="w-full h-2 bg-gray-700 rounded-lg appearance-none accent-cyan-500">
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Fill Region Modal Popup -->
+    <div id="fillPopup" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-gray-900 border border-purple-500/50 rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
+            <div class="flex items-center space-x-2">
+                <span class="text-2xl">🪣</span>
+                <div>
+                    <h3 class="text-base font-bold text-purple-300">구역 채우기 설정</h3>
+                    <p class="text-xs text-gray-400">분할된 해당 영역의 지형을 변경합니다.</p>
+                </div>
+            </div>
+
+            <div class="space-y-1">
+                <label class="text-xs font-semibold text-gray-300">교체할 대상 요소:</label>
+                <select id="fillTargetSelect" class="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-sm font-semibold focus:outline-none focus:border-purple-500">
+                    <option value="all">전체 (해당 구역 전체)</option>
+                    <option value="land">육지만</option>
+                    <option value="river">강만</option>
+                    <option value="sea">바다만</option>
+                    <option value="mountain">산지만</option>
+                    <option value="port">항구만</option>
+                    <option value="airport">공항만</option>
+                </select>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeFillPopup()" class="px-4 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-xs font-bold text-gray-300 active:bg-gray-700">취소</button>
+                <button onclick="confirmFillRegion()" class="px-4 py-2.5 rounded-xl bg-purple-600 text-xs font-bold text-white shadow-lg active:bg-purple-700">채우기 적용</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export HTML Modal -->
+    <div id="exportModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl p-5 w-full max-w-lg space-y-4 shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold flex items-center gap-2">📜 독립 실행형 HTML 내보내기</h3>
+                <button onclick="closeExportModal()" class="text-gray-400 hover:text-white text-lg">✕</button>
+            </div>
+
+            <div class="space-y-1">
+                <label class="text-xs text-gray-400 font-medium">저장할 파일 이름</label>
+                <input type="text" id="fileNameInput" value="map_500x500.html" class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-cyan-400 font-mono focus:outline-none">
+            </div>
+
+            <textarea id="codeOutput" readonly class="w-full flex-1 min-h-[160px] bg-black border border-gray-800 rounded-xl p-3 text-xs font-mono text-green-400 resize-none"></textarea>
+
+            <div class="flex justify-end gap-2 pt-1">
+                <button onclick="closeExportModal()" class="px-4 py-2.5 rounded-xl bg-gray-800 text-xs font-bold text-gray-300">닫기</button>
+                <button onclick="downloadHTML()" class="px-4 py-2.5 rounded-xl bg-cyan-600 text-xs font-bold text-white shadow-lg active:bg-cyan-700">💾 HTML 다운로드</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GRID_SIZE = 500;
+        let gridData = new Uint8Array(GRID_SIZE * GRID_SIZE); 
+        let currentMode = 'general';
+
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        const gridCanvas = document.getElementById('gridCanvas');
+        const gridCtx = gridCanvas.getContext('2d');
+        const wrapper = document.getElementById('canvas-wrapper');
+        const workspace = document.getElementById('workspace');
+
+        let currentTool = 'sea';
+        let brushRadius = 3;
+        let isRotated = false;
+
+        // Viewport Transform (Zoom & Pan)
+        let scale = 1.0;
+        let panX = 0;
+        let panY = 0;
+
+        // Interaction States
+        let isDrawing = false;
+        let isPanning = false;
+        let lastCoord = null;
+        let touchStartDist = 0;
+        let initialScale = 1.0;
+        let initialPanX = 0, initialPanY = 0;
+        let touchStartPos = { x: 0, y: 0 };
+        let lastTapTime = 0;
+
+        // Fill Mode States
+        let isFillingActive = false;
+        let fillLinePixels = []; 
+        let regions = [];
+        let activeRegionPixels = null; 
+        let brushBeforeFill = 'sea';
+
+        // Initialize viewport centered
+        window.addEventListener('load', () => {
+            resetView();
+            redrawGrid();
+        });
+
+        function switchMode(mode) {
+            currentMode = mode;
+            document.getElementById('tabGeneral').className = `px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${mode === 'general' ? 'bg-cyan-600 text-white' : 'text-gray-400'}`;
+            document.getElementById('tabGmap').className = `px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${mode === 'gmap' ? 'bg-cyan-600 text-white' : 'text-gray-400'}`;
+            document.getElementById('gmapOptions').style.display = (mode === 'gmap') ? 'block' : 'none';
+        }
+
+        function toggleSheet() {
+            const sheet = document.getElementById('bottomSheet');
+            const isCollapsed = sheet.classList.toggle('collapsed');
+            document.getElementById('sheetToggleText').innerText = isCollapsed ? '펼치기 ▲' : '접기 ▼';
+        }
+
+        function updateToolLabel() {
+            const labels = {
+                sea: '🌊 바다', river: '🏞️ 강', land: '🌱 육지', mountain: '⛰️ 산지',
+                fill: '🪣 영역 채우기', city: '🏛️ 시청 (2×3)', port: '⚓ 항구 (5×10)', airport: '✈️ 공항 (10×50)'
+            };
+            document.getElementById('activeToolLabel').innerText = `현재 도구: ${labels[currentTool] || currentTool}`;
+        }
+
+        function setBrush(tool) {
+            if (tool === 'fill') {
+                if (!isFillingActive) {
+                    if (currentTool !== 'fill') brushBeforeFill = currentTool;
+                    isFillingActive = true;
+                    fillLinePixels = [];
+                    regions = [];
+                    activeRegionPixels = null;
+                }
+            } else {
+                isFillingActive = false;
+                currentTool = tool;
+                fillLinePixels = [];
+                regions = [];
+                activeRegionPixels = null;
+            }
+
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active', 'border-cyan-500', 'border-2'));
+            const btnMap = { sea: 'btnSea', river: 'btnRiver', land: 'btnLand', mountain: 'btnMountain', fill: 'btnFill', city: 'btnCity', port: 'btnPort', airport: 'btnAirport' };
+            if (btnMap[tool]) {
+                const el = document.getElementById(btnMap[tool]);
+                el.classList.add('active', 'border-cyan-500', 'border-2');
+            }
+            updateToolLabel();
+            redrawGrid();
+        }
+
+        function toggleRotation() {
+            isRotated = !isRotated;
+            document.getElementById('rotText').innerText = isRotated ? "세로" : "가로";
+        }
+
+        document.getElementById('brushSize').oninput = (e) => {
+            brushRadius = parseInt(e.target.value);
+            document.getElementById('brushVal').innerText = brushRadius + 'px';
+        };
+
+        document.getElementById('opacityRange').oninput = (e) => {
+            let val = parseFloat(e.target.value);
+            gridCanvas.style.opacity = val;
+            document.getElementById('opacityVal').innerText = Math.round(val * 100) + '%';
+        };
+
+        function updateTransform() {
+            wrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+            document.getElementById('coord').innerText = `X: ${lastCoord ? lastCoord.x : '-'}, Y: ${lastCoord ? lastCoord.y : '-'} | Scale: ${Math.round(scale * 100)}%`;
+        }
+
+        function resetView() {
+            const wsRect = workspace.getBoundingClientRect();
+            scale = Math.min(wsRect.width / 520, wsRect.height / 520);
+            if (scale < 0.5) scale = 0.5;
+            panX = (wsRect.width - 500 * scale) / 2;
+            panY = (wsRect.height - 500 * scale) / 2;
+            updateTransform();
+        }
+
+        // Helper: Convert screen coordinate to grid index
+        function getGridPos(clientX, clientY) {
+            const rect = wrapper.getBoundingClientRect();
+            let gx = Math.floor((clientX - rect.left) / scale);
+            let gy = Math.floor((clientY - rect.top) / scale);
+            return { x: gx, y: gy };
+        }
+
+        // --- Touch & Pointer Event Handlers for Mobile ---
+        workspace.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                // Single touch: Draw or Tap
+                const touch = e.touches[0];
+                const pos = getGridPos(touch.clientX, touch.clientY);
+                
+                // Double tap detection for region selection
+                const now = Date.now();
+                if (now - lastTapTime < 300 && isFillingActive && regions.length > 0) {
+                    handleDoubleTap(pos.x, pos.y);
+                    lastTapTime = 0;
+                    return;
+                }
+                lastTapTime = now;
+
+                if (pos.x >= 0 && pos.x < 500 && pos.y >= 0 && pos.y < 500) {
+                    isDrawing = true;
+                    lastCoord = pos;
+                    if (isFillingActive && regions.length === 0) fillLinePixels = [];
+                    paintPoint(pos.x, pos.y);
+                }
+            } else if (e.touches.length === 2) {
+                // Two finger touch: Pinch Zoom & Pan
+                isDrawing = false;
+                isPanning = true;
+                touchStartDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                initialScale = scale;
+                touchStartPos = {
+                    x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                    y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+                };
+                initialPanX = panX;
+                initialPanY = panY;
+            }
+        }, { passive: false });
+
+        workspace.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (isDrawing && e.touches.length === 1) {
+                const touch = e.touches[0];
+                const pos = getGridPos(touch.clientX, touch.clientY);
+                if (pos.x >= 0 && pos.x < 500 && pos.y >= 0 && pos.y < 500) {
+                    paintLine(lastCoord.x, lastCoord.y, pos.x, pos.y);
+                    lastCoord = pos;
+                }
+            } else if (isPanning && e.touches.length === 2) {
+                const dist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                const currentPos = {
+                    x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                    y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+                };
+
+                let newScale = initialScale * (dist / touchStartDist);
+                newScale = Math.max(0.3, Math.min(12, newScale));
+
+                panX = initialPanX + (currentPos.x - touchStartPos.x);
+                panY = initialPanY + (currentPos.y - touchStartPos.y);
+                scale = newScale;
+                updateTransform();
+            }
+        }, { passive: false });
+
+        workspace.addEventListener('touchend', (e) => {
+            if (isDrawing && isFillingActive && regions.length === 0) {
+                checkAndSplitRegions();
+            }
+            if (e.touches.length === 0) {
+                isDrawing = false;
+                isPanning = false;
+                lastCoord = null;
+            }
+        });
+
+        // Mouse fallbacks for desktop
+        workspace.addEventListener('mousedown', (e) => {
+            if (e.button === 2) {
+                isPanning = true;
+                touchStartPos = { x: e.clientX - panX, y: e.clientY - panY };
+            } else if (e.button === 0) {
+                const pos = getGridPos(e.clientX, e.clientY);
+                if (pos.x >= 0 && pos.x < 500 && pos.y >= 0 && pos.y < 500) {
+                    isDrawing = true;
+                    lastCoord = pos;
+                    if (isFillingActive && regions.length === 0) fillLinePixels = [];
+                    paintPoint(pos.x, pos.y);
+                }
+            }
+        });
+
+        workspace.addEventListener('mousemove', (e) => {
+            const pos = getGridPos(e.clientX, e.clientY);
+            if (pos.x >= 0 && pos.x < 500 && pos.y >= 0 && pos.y < 500) {
+                document.getElementById('coord').innerText = `X: ${pos.x}, Y: ${pos.y} | Scale: ${Math.round(scale * 100)}%`;
+            }
+            if (isPanning) {
+                panX = e.clientX - touchStartPos.x;
+                panY = e.clientY - touchStartPos.y;
+                updateTransform();
+            } else if (isDrawing) {
+                paintLine(lastCoord.x, lastCoord.y, pos.x, pos.y);
+                lastCoord = pos;
+            }
+        });
+
+        workspace.addEventListener('mouseup', () => {
+            if (isDrawing && isFillingActive && regions.length === 0) checkAndSplitRegions();
+            isDrawing = false;
+            isPanning = false;
+            lastCoord = null;
+        });
+
+        workspace.addEventListener('dblclick', (e) => {
+            if (!isFillingActive || regions.length === 0) return;
+            const pos = getGridPos(e.clientX, e.clientY);
+            handleDoubleTap(pos.x, pos.y);
+        });
+
+        workspace.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomFactor = 1.15;
+            let newScale = e.deltaY < 0 ? scale * zoomFactor : scale / zoomFactor;
+            newScale = Math.max(0.3, Math.min(12, newScale));
+
+            const rect = workspace.getBoundingClientRect();
+            let mouseX = e.clientX - rect.left;
+            let mouseY = e.clientY - rect.top;
+
+            panX = mouseX - (mouseX - panX) * (newScale / scale);
+            panY = mouseY - (mouseY - panY) * (newScale / scale);
+            scale = newScale;
+            updateTransform();
+        });
+
+        function handleDoubleTap(gx, gy) {
+            if (gx < 0 || gx >= 500 || gy < 0 || gy >= 500) return;
+            let clickedIdx = gy * GRID_SIZE + gx;
+            for (let reg of regions) {
+                if (reg.has(clickedIdx)) {
+                    activeRegionPixels = reg;
+                    document.getElementById('fillPopup').style.display = 'flex';
+                    break;
+                }
+            }
+        }
+
+        // --- Drawing Logic & Bresenham Line Interpolation ---
+        function getLinePixels(x0, y0, x1, y1) {
+            let pixels = [];
+            let dx = Math.abs(x1 - x0);
+            let dy = Math.abs(y1 - y0);
+            let sx = (x0 < x1) ? 1 : -1;
+            let sy = (y0 < y1) ? 1 : -1;
+            let err = dx - dy;
+
+            let cx = x0, cy = y0;
+            while (true) {
+                pixels.push({ x: cx, y: cy });
+                if (cx === x1 && cy === y1) break;
+                let e2 = 2 * err;
+                if (e2 > -dy) { err -= dy; cx += sx; }
+                if (e2 < dx) { err += dx; cy += sy; }
+            }
+            return pixels;
+        }
+
+        function paintPoint(gx, gy) {
+            paintLine(gx, gy, gx, gy);
+        }
+
+        function paintLine(x0, y0, x1, y1) {
+            if (isFillingActive) {
+                if (regions.length === 0) {
+                    let linePts = getLinePixels(x0, y0, x1, y1);
+                    for (let pt of linePts) {
+                        for (let dy = -brushRadius; dy <= brushRadius; dy++) {
+                            for (let dx = -brushRadius; dx <= brushRadius; dx++) {
+                                let px = pt.x + dx, py = pt.y + dy;
+                                if (px >= 0 && px < 500 && py >= 0 && py < 500) {
+                                    fillLinePixels.push(py * GRID_SIZE + px);
+                                }
+                            }
+                        }
+                    }
+                    redrawGrid();
+                }
+                return;
+            }
+
+            if (['sea', 'river', 'land', 'mountain'].includes(currentTool)) {
+                let valMap = { sea: 1, river: 2, land: 0, mountain: 3 };
+                let fillVal = valMap[currentTool];
+
+                let linePts = getLinePixels(x0, y0, x1, y1);
+                for (let pt of linePts) {
+                    for (let dy = -brushRadius; dy <= brushRadius; dy++) {
+                        for (let dx = -brushRadius; dx <= brushRadius; dx++) {
+                            if (dx * dx + dy * dy <= brushRadius * brushRadius) {
+                                let px = pt.x + dx, py = pt.y + dy;
+                                if (px >= 0 && px < 500 && py >= 0 && py < 500) {
+                                    if (gridData[py * 500 + px] < 4) {
+                                        gridData[py * 500 + px] = fillVal;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (currentTool === 'city') {
+                fillStamp(x1, y1, isRotated ? 3 : 2, isRotated ? 2 : 3, 4);
+            } else if (currentTool === 'port') {
+                fillStamp(x1, y1, isRotated ? 10 : 5, isRotated ? 5 : 10, 5);
+            } else if (currentTool === 'airport') {
+                fillStamp(x1, y1, isRotated ? 50 : 10, isRotated ? 10 : 50, 6);
+            }
+            redrawGrid();
+        }
+
+        function fillStamp(startX, startY, w, h, typeVal) {
+            for (let dy = 0; dy < h; dy++) {
+                for (let dx = 0; dx < w; dx++) {
+                    let px = startX + dx, py = startY + dy;
+                    if (px < 500 && py < 500) gridData[py * 500 + px] = typeVal;
+                }
+            }
+        }
+
+        // --- Region Split via BFS ---
+        function checkAndSplitRegions() {
+            if (fillLinePixels.length === 0) return;
+
+            let lineSet = new Set(fillLinePixels);
+            let visited = new Uint8Array(GRID_SIZE * GRID_SIZE);
+            for (let idx of lineSet) visited[idx] = 1;
+
+            regions = [];
+
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    let startIdx = y * GRID_SIZE + x;
+                    if (!visited[startIdx]) {
+                        let currentRegion = new Set();
+                        let queue = [startIdx];
+                        visited[startIdx] = 1;
+
+                        while (queue.length > 0) {
+                            let curr = queue.shift();
+                            currentRegion.add(curr);
+                            let cx = curr % GRID_SIZE;
+                            let cy = Math.floor(curr / GRID_SIZE);
+
+                            let neighbors = [[cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]];
+                            for (let [nx, ny] of neighbors) {
+                                if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE) {
+                                    let nIdx = ny * GRID_SIZE + nx;
+                                    if (!visited[nIdx]) {
+                                        visited[nIdx] = 1;
+                                        queue.push(nIdx);
+                                    }
+                                }
+                            }
+                        }
+                        if (currentRegion.size > 10) regions.push(currentRegion);
+                    }
+                }
+            }
+
+            if (regions.length < 2) {
+                alert("선이 맵을 2개 이상의 영역으로 가르지 못했습니다. 가로질러 라인을 그어주세요.");
+                fillLinePixels = [];
+                regions = [];
+            }
+            redrawGrid();
+        }
+
+        function closeFillPopup() {
+            document.getElementById('fillPopup').style.display = 'none';
+        }
+
+        function confirmFillRegion() {
+            if (!activeRegionPixels) return;
+            let targetType = document.getElementById('fillTargetSelect').value;
+
+            let valMap = { sea: 1, river: 2, land: 0, mountain: 3, port: 5, airport: 6 };
+            let newValMap = valMap[brushBeforeFill] !== undefined ? valMap[brushBeforeFill] : 1;
+            let typeMapCode = { land: 0, sea: 1, river: 2, mountain: 3, port: 5, airport: 6 };
+
+            for (let idx of activeRegionPixels) {
+                let currentVal = gridData[idx];
+                if (targetType === 'all') {
+                    gridData[idx] = newValMap;
+                } else {
+                    if (currentVal === typeMapCode[targetType]) {
+                        gridData[idx] = newValMap;
+                    }
+                }
+            }
+
+            closeFillPopup();
+            activeRegionPixels = null;
+            regions = [];
+            fillLinePixels = [];
+            setBrush(brushBeforeFill);
+            redrawGrid();
+        }
+
+        // --- Render Canvas ---
+        function redrawGrid() {
+            gridCtx.clearRect(0, 0, 500, 500);
+
+            const colorMap = {
+                1: '#1A237E', // Sea
+                2: '#00BCD4', // River
+                3: '#1B5E20', // Mountain
+                4: '#FFFFFF', // City
+                5: '#BDBDBD', // Port
+                6: '#424242'  // Airport
+            };
+
+            const regionColors = ['#7b1fa2', '#512da8', '#303f9f', '#00796b', '#c2185b', '#e65100'];
+
+            for (let y = 0; y < 500; y++) {
+                for (let x = 0; x < 500; x++) {
+                    let idx = y * 500 + x;
+                    let type = gridData[idx];
+
+                    if (isFillingActive) {
+                        let drawn = false;
+                        if (regions.length > 0) {
+                            for (let i = 0; i < regions.length; i++) {
+                                if (regions[i].has(idx)) {
+                                    gridCtx.fillStyle = regionColors[i % regionColors.length];
+                                    drawn = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!drawn) gridCtx.fillStyle = '#444444';
+                    } else {
+                        if (type > 0 && colorMap[type]) {
+                            gridCtx.fillStyle = colorMap[type];
+                        } else {
+                            continue;
+                        }
+                    }
+                    gridCtx.fillRect(x, y, 1, 1);
+                }
+            }
+
+            if (isFillingActive && fillLinePixels.length > 0) {
+                gridCtx.fillStyle = '#ba68c8';
+                for (let idx of fillLinePixels) {
+                    gridCtx.fillRect(idx % 500, Math.floor(idx / 500), 1, 1);
+                }
+            }
+        }
+
+        // --- File Import / Image Recognition ---
+        document.getElementById('htmlUploadInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const content = event.target.result;
+                const matchGrid = content.match(/const\s+gridData\s*=\s*new\s+Uint8Array\s*\(\s*\[([\d,\s]+)\]\s*\)/);
+                if (matchGrid && matchGrid[1]) {
+                    const parsedArray = matchGrid[1].split(',').map(n => parseInt(n.trim(), 10));
+                    if (parsedArray.length === GRID_SIZE * GRID_SIZE) {
+                        gridData = new Uint8Array(parsedArray);
+                        redrawGrid();
+                        alert("맵 파일 로드 성공!");
+                    }
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    bgCtx.clearRect(0, 0, 500, 500);
+                    bgCtx.drawImage(img, 0, 0, 500, 500);
+
+                    const imgData = bgCtx.getImageData(0, 0, 500, 500).data;
+                    let gmapTargetVal = parseInt(document.querySelector('input[name="gmapTarget"]:checked').value);
+
+                    for (let y = 0; y < 500; y++) {
+                        for (let x = 0; x < 500; x++) {
+                            let idx = (y * 500 + x) * 4;
+                            let currentVal = gridData[y * 500 + x];
+                            if (currentVal >= 4) continue;
+
+                            let r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
+
+                            if (currentMode === 'gmap') {
+                                // Google Maps water colors matching #90D9ED, #A0DEEE, #D1EAF1, #7AA9B7, #8BCEE0
+                                let isTargetColor = (
+                                    (r >= 115 && r <= 165 && g >= 155 && g <= 245 && b >= 170 && b <= 255) ||
+                                    (b > r + 20 && b > g + 10)
+                                );
+                                gridData[y * 500 + x] = isTargetColor ? gmapTargetVal : 0;
+                            } else {
+                                if (b > r + 30 && b > g + 20) {
+                                    gridData[y * 500 + x] = (b > 160 && g > 100) ? 2 : 1;
+                                } else {
+                                    gridData[y * 500 + x] = 0;
+                                }
+                            }
+                        }
+                    }
+                    redrawGrid();
+                    alert("이미지 자동 인식 완료!");
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // --- Export Standalone HTML ---
+        function openExportModal() {
+            document.getElementById('exportModal').style.display = 'flex';
+            generateHTMLCode();
+        }
+        function closeExportModal() {
+            document.getElementById('exportModal').style.display = 'none';
+        }
+
+        function generateHTMLCode() {
+            let dataStr = Array.from(gridData).join(',');
+            let htmlCode = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>500x500 완성 맵 뷰어</title>
+    <style>
+        body { margin:0; background:#000; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
+        #mapCanvas { width:500px; height:500px; max-width:100vw; max-height:100vh; box-shadow:0 0 20px rgba(255,255,255,0.2); image-rendering:pixelated; }
+    </style>
+</head>
+<body>
+    <canvas id="mapCanvas" width="500" height="500"></canvas>
+    <script>
+        const gridData = new Uint8Array([${dataStr}]);
+        window.onload = function() {
+            const canvas = document.getElementById('mapCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(0, 0, 500, 500);
+
+            const colorMap = { 
+                1: '#1A237E', 
+                2: '#00BCD4', 
+                3: '#1B5E20', 
+                4: '#FFFFFF', 
+                5: '#BDBDBD', 
+                6: '#424242'  
+            };
+
+            for (let y = 0; y < 500; y++) {
+                for (let x = 0; x < 500; x++) {
+                    let t = gridData[y * 500 + x];
+                    if (colorMap[t]) {
+                        ctx.fillStyle = colorMap[t];
+                        ctx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+        };
+    <\/script>
+</body>
+</html>`;
+            document.getElementById('codeOutput').value = htmlCode;
+        }
+
+        function downloadHTML() {
+            const code = document.getElementById('codeOutput').value;
+            let customName = document.getElementById('fileNameInput').value.trim() || 'map_500x500.html';
+            if (!customName.endsWith('.html')) customName += '.html';
+
+            const blob = new Blob([code], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = customName;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
