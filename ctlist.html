@@ -1,255 +1,324 @@
+
+Gemini
+
+새 채팅
+라이브러리
+이미지
+예약됨
+학생
+맞춤설정
+새 노트북
+AI와 함께하는 마을 게임
+GitHub Pages용 index.html 코드 생성
+깃허브 페이지 특정 파일 링크 확인 법
+분기 • 도시 인구와 인지도의 관계
+구글 콜랩 화면 확대 해결 방법
+도시 인구와 인지도의 관계
+유엔기 월계수잎 제거 및 지구 확대
+한글 양쪽 정렬 방법
+탑골공원 장기판 철거와 노인 여가 정책의 타당성
+서울시장 가상 공약 제안 피드백
+런던 거주 경험 영작하기
+아카데미가 망했다 줄거리 및 결말
+조선시대의 신분 제도와 구조
+학교 체육수업 확대 논거 평가 및 작성 팁
+구로구 중학생 영재교육원 비교 분석
+Confident의 의미와 예문 정리
+화면 감시 기능 설명
+인터넷 용어 SW의 의미
+정치깡패 가두행진 사진 사건
+2022 개정 고등학교 교육과정 과목 안내
+전복의 영어 단어
+타국 정당 간의 협약 및 교류
+싱가포르의 주요 정당 목록
+법학과 경영학 전공 주요 과목
+기타 줄 번호와 두께 순서
+시각장애 등급제 개편 기준
+인터넷 속도 측정 결과 평가
+교육용 웹 시스템 코드 분석
+발표문에서 과거시제 활용 구간
+양위한 선왕의 묘호와 실록 편찬 시점
+조선 왕실 '종' 묘호와 업적 정리
+경복궁의 국유재산 평가금액
+미분단 한반도 고속철도 노선망
+무엇을 도와드릴까요?
+
+한도는 2:08 오후에 초기화됩니다.
+사용량 보기
+업그레이드
+
+
+
+
+
+분석 중
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>도시 목록 환산표 (116개)</title>
+  <title>도시 목록 환산표 (GitHub Pages)</title>
   <style>
     :root {
-      --primary-color: #0969da;
-      --bg-color: #f6f8fa;
-      --border-color: #d0d7de;
-      --text-color: #24292f;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 8px;
     }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
       margin: 0;
       padding: 24px;
-      background-color: var(--bg-color);
-      color: var(--text-color);
     }
-    .header-container {
+    .container {
       max-width: 1200px;
-      margin: 0 auto 16px auto;
+      margin: 0 auto;
+    }
+    .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
     }
     h1 {
-      font-size: 22px;
+      font-size: 24px;
+      font-weight: 700;
       margin: 0;
+      color: #0f172a;
     }
-    .back-btn {
-      padding: 8px 16px;
+    .btn-group {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      padding: 10px 18px;
       font-size: 14px;
-      font-weight: 500;
+      font-weight: 600;
       color: #ffffff;
-      background-color: var(--primary-color);
+      background-color: var(--primary);
       border: none;
-      border-radius: 6px;
+      border-radius: var(--radius);
       text-decoration: none;
-      transition: background-color 0.2s;
+      cursor: pointer;
+      transition: background-color 0.2s, box-shadow 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    .back-btn:hover {
-      background-color: #0451a5;
+    .btn:hover {
+      background-color: var(--primary-dark);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
     }
-    .table-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      background: #ffffff;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
+    .controls {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .search-box {
+      flex: 1;
+      min-width: 280px;
+      padding: 12px 16px;
+      font-size: 15px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      outline: none;
+      background: var(--card-bg);
+      transition: border-color 0.2s;
+    }
+    .search-box:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .filter-select {
+      padding: 12px 16px;
+      font-size: 15px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      outline: none;
+      background: var(--card-bg);
+      cursor: pointer;
+    }
+    .table-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+    .table-responsive {
       overflow-x: auto;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      max-height: 70vh;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
       font-size: 14px;
-      white-space: nowrap;
-    }
-    th, td {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-color);
     }
     th {
-      background-color: #f6f8fa;
+      background-color: #f1f5f9;
+      color: #475569;
       font-weight: 600;
+      padding: 14px 16px;
+      border-bottom: 2px solid var(--border);
       position: sticky;
       top: 0;
       z-index: 10;
+    }
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      color: #334155;
     }
     tr:last-child td {
       border-bottom: none;
     }
     tr:hover {
-      background-color: #f3f4f6;
+      background-color: #f8fafc;
     }
-    .search-box {
-      width: 100%;
-      max-width: 1200px;
-      margin: 0 auto 16px auto;
-      display: block;
-      padding: 10px 14px;
-      font-size: 14px;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      box-sizing: border-box;
+    .badge-capital {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #047857;
+      background-color: #d1fae5;
+      border-radius: 9999px;
+      text-align: center;
+    }
+    .count-info {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: right;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+      font-size: 15px;
     }
   </style>
 </head>
 <body>
 
-  <div class="header-container">
-    <h1>116개 도시 전체 환산표</h1>
-    <a href="index.html" class="back-btn">메인으로 돌아가기</a>
-  </div>
+  <div class="container">
+    <div class="header">
+      <h1>🌍 도시 목록 환산표</h1>
+      <div class="btn-group">
+        <a href="index.html" class="btn">메인으로</a>
+        <a href="edit.html" class="btn" style="background-color: #059669;">Edit 열기</a>
+      </div>
+    </div>
 
-  <input type="text" id="searchInput" class="search-box" placeholder="도시명, 국가, 코드 또는 권역으로 검색하세요..." onkeyup="filterTable()">
+    <div class="controls">
+      <input type="text" id="searchInput" class="search-box" placeholder="도시명, 국가, 코드 또는 색상으로 검색..." onkeyup="filterTable()">
+      <select id="regionFilter" class="filter-select" onchange="filterTable()">
+        <option value="">전체 권역 보기</option>
+      </select>
+    </div>
 
-  <div class="table-container">
-    <table id="cityTable">
-      <thead>
-        <tr>
-          <th>코드</th>
-          <th>도시 이름</th>
-          <th>수도 여부</th>
-          <th>국가</th>
-          <th>대륙 권역</th>
-          <th>색상 이름</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- 주요 샘플 데이터 (필요에 따라 전체 116개 데이터를 이 형식으로 확장해 넣으세요) -->
-        <tr>
-          <td>SEO</td>
-          <td>서울</td>
-          <td></td>
-          <td>대한민국</td>
-          <td>동아시아</td>
-          <td>빨강 (밝은 진빨강)</td>
-        </tr>
-        <tr>
-          <td>PUS</td>
-          <td>부산</td>
-          <td></td>
-          <td>대한민국</td>
-          <td>동아시아</td>
-          <td>연한 빨강</td>
-        </tr>
-        <tr>
-          <td>TYO</td>
-          <td>도쿄</td>
-          <td>*</td>
-          <td>일본</td>
-          <td>동아시아</td>
-          <td>진빨강</td>
-        </tr>
-        <tr>
-          <td>OSA</td>
-          <td>오사카</td>
-          <td></td>
-          <td>일본</td>
-          <td>동아시아</td>
-          <td>다홍색</td>
-        </tr>
-        <tr>
-          <td>BJS</td>
-          <td>베이징</td>
-          <td></td>
-          <td>중국</td>
-          <td>동아시아</td>
-          <td>짙은 빨강</td>
-        </tr>
-        <tr>
-          <td>SHA</td>
-          <td>상하이</td>
-          <td></td>
-          <td>중국</td>
-          <td>동아시아</td>
-          <td>장미색</td>
-        </tr>
-        <tr>
-          <td>TPE</td>
-          <td>타이베이</td>
-          <td>*</td>
-          <td>대만</td>
-          <td>동아시아</td>
-          <td>밝은 빨강</td>
-        </tr>
-        <tr>
-          <td>BKK</td>
-          <td>방콕</td>
-          <td>*</td>
-          <td>태국</td>
-          <td>동남아시아</td>
-          <td>파랑</td>
-        </tr>
-        <tr>
-          <td>HAN</td>
-          <td>하노이</td>
-          <td>*</td>
-          <td>베트남</td>
-          <td>동남아시아</td>
-          <td>청색</td>
-        </tr>
-        <tr>
-          <td>SGN</td>
-          <td>호찌민</td>
-          <td></td>
-          <td>베트남</td>
-          <td>동남아시아</td>
-          <td>연청색</td>
-        </tr>
-        <tr>
-          <td>JKT</td>
-          <td>자카르타</td>
-          <td>*</td>
-          <td>인도네시아</td>
-          <td>동남아시아</td>
-          <td>코발트 블루</td>
-        </tr>
-        <tr>
-          <td>SIN</td>
-          <td>싱가포르</td>
-          <td>*</td>
-          <td>싱가포르</td>
-          <td>동남아시아</td>
-          <td>연한 하늘색</td>
-        </tr>
-        <tr>
-          <td>LON</td>
-          <td>런던</td>
-          <td>*</td>
-          <td>영국</td>
-          <td>북유럽</td>
-          <td>노랑</td>
-        </tr>
-        <tr>
-          <td>NYC</td>
-          <td>뉴욕</td>
-          <td></td>
-          <td>미국</td>
-          <td>북아메리카</td>
-          <td>라벤더</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="table-card">
+      <div class="table-responsive">
+        <table id="cityTable">
+          <thead>
+            <tr>
+              <th>코드</th>
+              <th>도시 이름</th>
+              <th>수도 여부</th>
+              <th>국가</th>
+              <th>대륙 권역</th>
+              <th>색상 이름</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <!-- 자바스크립트로 동적 렌더링 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="count-info" id="countInfo">총 0개 도시 표시 중</div>
   </div>
 
   <script>
-    function filterTable() {
-      const input = document.getElementById("searchInput");
-      const filter = input.value.toLowerCase();
-      const table = document.getElementById("cityTable");
-      const tr = table.getElementsByTagName("tr");
+    const citiesData = [{"code": "SEO", "name": "서울", "capital": "*", "country": "대한민국", "region": "동아시아", "color": "빨강 (밝은 진빨강)"}, {"code": "PUS", "name": "부산", "capital": "", "country": "대한민국", "region": "동아시아", "color": "연한 빨강"}, {"code": "TYO", "name": "도쿄", "capital": "*", "country": "일본", "region": "동아시아", "color": "진빨강"}, {"code": "OSA", "name": "오사카", "capital": "", "country": "일본", "region": "동아시아", "color": "다홍색"}, {"code": "BJS", "name": "베이징", "capital": "*", "country": "중국", "region": "동아시아", "color": "짙은 빨강"}, {"code": "SHA", "name": "상하이", "capital": "", "country": "중국", "region": "동아시아", "color": "장미색"}, {"code": "TPE", "name": "타이베이", "capital": "*", "country": "대만", "region": "동아시아", "color": "밝은 빨강"}, {"code": "KHH", "name": "가오슝", "capital": "", "country": "대만", "region": "동아시아", "color": "연한 핑크빨강"}, {"code": "BKK", "name": "방콕", "capital": "*", "country": "태국", "region": "동남아시아", "color": "파랑"}, {"code": "CNX", "name": "치앙마이", "capital": "", "country": "태국", "region": "동남아시아", "color": "스카이 블루"}, {"code": "DEL", "name": "뉴델리", "capital": "*", "country": "인도", "region": "남아시아", "color": "초록"}, {"code": "BOM", "name": "뭄바이", "capital": "", "country": "인도", "region": "남아시아", "color": "밝은 초록"}, {"code": "ISB", "name": "이슬라마바드", "capital": "*", "country": "파키스탄", "region": "남아시아", "color": "진한 초록"}, {"code": "KHI", "name": "카라치", "capital": "", "country": "파키스탄", "region": "남아시아", "color": "연두색"}, {"code": "KTM", "name": "카트만두", "capital": "*", "country": "네팔", "region": "남아시아", "color": "짙은 초록"}, {"code": "PKR", "name": "포카라", "capital": "", "country": "네팔", "region": "남아시아", "color": "연한 연두색"}, {"code": "SJP", "name": "스리자야와르다나푸라코테", "capital": "*", "country": "스리랑카", "region": "남아시아", "color": "밝은 연두색"}, {"code": "CMB", "name": "콜롬보", "capital": "", "country": "스리랑카", "region": "남아시아", "color": "풀색"}, {"code": "AUH", "name": "아부다비", "capital": "*", "country": "아랍에미리트", "region": "서아시아 & 중동", "color": "보라"}, {"code": "AST", "name": "아스타나", "capital": "*", "country": "카자흐스탄", "region": "중앙아시아", "color": "주황"}, {"code": "ALA", "name": "알마티", "capital": "", "country": "카자흐스탄", "region": "중앙아시아", "color": "연한 주황"}, {"code": "TAS", "name": "타슈켄트", "capital": "*", "country": "우즈베키스탄", "region": "중앙아시아", "color": "진주황"}, {"code": "SKD", "name": "사마르칸트", "capital": "", "country": "우즈베키스탄", "region": "중앙아시아", "color": "살구색"}, {"code": "FRU", "name": "비슈케크", "capital": "*", "country": "키르기스스탄", "region": "중앙아시아", "color": "짙은 주황"}, {"code": "OSS", "name": "오시", "capital": "", "country": "키르기스스탄", "region": "중앙아시아", "color": "밝은 살구색"}, {"code": "PAR", "name": "파리", "capital": "*", "country": "프랑스", "region": "서유럽", "color": "시안 (청록)"}, {"code": "NCE", "name": "니스", "capital": "", "country": "프랑스", "region": "서유럽", "color": "밝은 청록"}, {"code": "BER", "name": "베를린", "capital": "*", "country": "독일", "region": "서유럽", "color": "밝은 시안"}, {"code": "ROM", "name": "로마", "capital": "*", "country": "이탈리아", "region": "남유럽", "color": "밝은 민트초록"}, {"code": "MIL", "name": "밀라노", "capital": "", "country": "이탈리아", "region": "남유럽", "color": "민트색"}, {"code": "VCE", "name": "베네치아", "capital": "", "country": "이탈리아", "region": "남유럽", "color": "연두민트"}, {"code": "MAD", "name": "마드리드", "capital": "*", "country": "스페인", "region": "남유럽", "color": "초록민트"}, {"code": "BCN", "name": "바르셀로나", "capital": "", "country": "스페인", "region": "남유럽", "color": "연한 민트"}, {"code": "LIS", "name": "리스본", "capital": "*", "country": "포르투갈", "region": "남유럽", "color": "밝은 하늘색"}, {"code": "OPO", "name": "포르투", "capital": "", "country": "포르투갈", "region": "남유럽", "color": "연하늘색"}, {"code": "ATH", "name": "아테네", "capital": "*", "country": "그리스", "region": "남유럽", "color": "진한 하늘색"}, {"code": "JTR", "name": "산토리니", "capital": "", "country": "그리스", "region": "남유럽", "color": "아주 연한 하늘색"}, {"code": "LON", "name": "런던", "capital": "*", "country": "영국", "region": "북유럽", "color": "노랑"}, {"code": "MAN", "name": "맨체스터", "capital": "", "country": "영국", "region": "북유럽", "color": "밝은 노랑"}, {"code": "EDI", "name": "에든버러", "capital": "", "country": "영국", "region": "북유럽", "color": "골드 (금색)"}, {"code": "STO", "name": "스톡홀름", "capital": "*", "country": "스웨덴", "region": "북유럽", "color": "황색"}, {"code": "GOT", "name": "예테보리", "capital": "", "country": "스웨덴", "region": "북유럽", "color": "주황빛 노랑"}, {"code": "OSL", "name": "오슬로", "capital": "*", "country": "노르웨이", "region": "북유럽", "color": "호박색"}, {"code": "BGO", "name": "베르겐", "capital": "", "country": "노르웨이", "region": "북유럽", "color": "연한 황색"}, {"code": "CPH", "name": "코펜하겐", "capital": "*", "country": "덴마크", "region": "북유럽", "color": "진한 황색"}, {"code": "AAR", "name": "오르후스", "capital": "", "country": "덴마크", "region": "북유럽", "color": "오렌지빛 노랑"}, {"code": "HAN", "name": "하노이", "capital": "*", "country": "베트남", "region": "동남아시아", "color": "청색"}, {"code": "SGN", "name": "호찌민", "capital": "", "country": "베트남", "region": "동남아시아", "color": "연청색"}, {"code": "JKT", "name": "자카르타", "capital": "*", "country": "인도네시아", "region": "동남아시아", "color": "코발트 블루"}, {"code": "DPS", "name": "발리", "capital": "", "country": "인도네시아", "region": "동남아시아", "color": "하늘색"}, {"code": "SIN", "name": "싱가포르", "capital": "*", "country": "싱가포르", "region": "동남아시아", "color": "연한 하늘색"}, {"code": "SEN", "name": "센토사", "capital": "", "country": "싱가포르", "region": "동남아시아", "color": "진한 파랑"}, {"code": "MNL", "name": "마닐라", "capital": "*", "country": "필리핀", "region": "동남아시아", "color": "남색"}, {"code": "CEB", "name": "세부", "capital": "", "country": "필리핀", "region": "동남아시아", "color": "아주 연한 파랑"}, {"code": "BAL", "name": "발리2", "capital": "", "country": "인도네시아", "region": "동남아시아", "color": "연청색"}, {"code": "DXB", "name": "두바이", "capital": "", "country": "아랍에미리트", "region": "서아시아 & 중동", "color": "연보라"}, {"code": "RUH", "name": "리야드", "capital": "*", "country": "사우디아라비아", "region": "서아시아 & 중동", "color": "진보라"}, {"code": "JED", "name": "제다", "capital": "", "country": "사우디아라비아", "region": "서아시아 & 중동", "color": "회보라"}, {"code": "ANK", "name": "앙카라", "capital": "*", "country": "튀르키예", "region": "서아시아 & 중동", "color": "잿빛 보라"}, {"code": "IST", "name": "이스탄불", "capital": "", "country": "튀르키예", "region": "서아시아 & 중동", "color": "짙은 보라"}, {"code": "JRS", "name": "예루살렘", "capital": "*", "country": "이스라엘", "region": "서아시아 & 중동", "color": "어두운 보라"}, {"code": "TLV", "name": "텔아비브", "capital": "", "country": "이스라엘", "region": "서아시아 & 중동", "color": "연한 회보라"}, {"code": "DOH", "name": "도하", "capital": "*", "country": "카타르", "region": "서아시아 & 중동", "color": "밝은 연보라"}, {"code": "MCT", "name": "무스카트", "capital": "*", "country": "오만", "region": "서아시아 & 중동", "color": "보라"}, {"code": "MUC", "name": "뮌헨", "capital": "", "country": "독일", "region": "서유럽", "color": "짙은 청록"}, {"code": "AMS", "name": "암스테르담", "capital": "*", "country": "네덜란드", "region": "서유럽", "color": "딥 청록"}, {"code": "RTM", "name": "로테르담", "capital": "", "country": "네덜란드", "region": "서유럽", "color": "밝은 청록"}, {"code": "BRU", "name": "브뤼셀", "capital": "*", "country": "벨기에", "region": "서유럽", "color": "밝은 시안"}, {"code": "ANR", "name": "안트베르펜", "capital": "", "country": "벨기에", "region": "서유럽", "color": "아주 밝은 청록"}, {"code": "BRN", "name": "베른", "capital": "*", "country": "스위스", "region": "서유럽", "color": "청록색"}, {"code": "ZRH", "name": "취리히", "capital": "", "country": "스위스", "region": "서유럽", "color": "에메랄드"}, {"code": "GVA", "name": "제네바", "capital": "", "country": "스위스", "region": "서유럽", "color": "터코이즈"}, {"code": "VAT", "name": "바티칸", "capital": "*", "country": "바티칸 시국", "region": "남유럽", "color": "밝은 바다색"}, {"code": "MOW", "name": "모스크바", "capital": "*", "country": "러시아", "region": "동유럽", "color": "마젠타 (자홍)"}, {"code": "LED", "name": "상트페테르부르크", "capital": "", "country": "러시아", "region": "동유럽", "color": "밝은 자홍"}, {"code": "WAW", "name": "바르샤바", "capital": "*", "country": "폴란드", "region": "동유럽", "color": "진자홍"}, {"code": "KRK", "name": "크라쿠프", "capital": "", "country": "폴란드", "region": "동유럽", "color": "연자홍"}, {"code": "IEV", "name": "키이우", "capital": "*", "country": "우크라이나", "region": "동유럽", "color": "보라빛 자홍"}, {"code": "ODS", "name": "오데사", "capital": "", "country": "우크라이나", "region": "동유럽", "color": "밝은 핑크보라"}, {"code": "PRG", "name": "프라하", "capital": "*", "country": "체코", "region": "동유럽", "color": "연핑크"}, {"code": "BRQ", "name": "브르노", "capital": "", "country": "체코", "region": "동유럽", "color": "아주 연한 핑크"}, {"code": "HEL", "name": "헬싱키", "capital": "*", "country": "핀란드", "region": "북유럽", "color": "크림색 (연노랑)"}, {"code": "RVN", "name": "로바니에미", "capital": "", "country": "핀란드", "region": "북유럽", "color": "진한 오렌지노랑"}, {"code": "WAS", "name": "워싱턴 D.C.", "capital": "*", "country": "미국", "region": "북아메리카", "color": "진보라"}, {"code": "NYC", "name": "뉴욕", "capital": "", "country": "미국", "region": "북아메리카", "color": "라벤더"}, {"code": "LAX", "name": "로스앤젤레스", "capital": "", "country": "미국", "region": "북아메리카", "color": "연보라"}, {"code": "YOW", "name": "오타와", "capital": "*", "country": "캐나다", "region": "북아메리카", "color": "연한 라벤더"}, {"code": "YTO", "name": "토론토", "capital": "", "country": "캐나다", "region": "북아메리카", "color": "어두운 진보라"}, {"code": "YVR", "name": "밴쿠버", "capital": "", "country": "캐나다", "region": "북아메리카", "color": "보라빛 진자홍"}, {"code": "MEX", "name": "멕시코시티", "capital": "*", "country": "멕시코", "region": "북아메리카", "color": "딥 보라"}, {"code": "PTY", "name": "파나마시티", "capital": "*", "country": "파나마", "region": "중앙아메리카 & 카리브", "color": "주황빨강 (다홍)"}, {"code": "CLX", "name": "콜론", "capital": "", "country": "파나마", "region": "중앙아메리카 & 카리브", "color": "연한 다홍"}, {"code": "SJO", "name": "산호세", "capital": "*", "country": "코스타리카", "region": "중앙아메리카 & 카리브", "color": "밝은 다홍"}, {"code": "AJO", "name": "알라후엘라", "capital": "", "country": "코스타리카", "region": "중앙아메리카 & 카리브", "color": "연한 주황빛"}, {"code": "HAV", "name": "아바나", "capital": "*", "country": "쿠바", "region": "중앙아메리카 & 카리브", "color": "진한 다홍"}, {"code": "VAR", "name": "바라데로", "capital": "", "country": "쿠바", "region": "중앙아메리카 & 카리브", "color": "붉은 주황"}, {"code": "KIN", "name": "킹스턴", "capital": "*", "country": "자메이카", "region": "중앙아메리카 & 카리브", "color": "어두운 주황"}, {"code": "MBJ", "name": "몬테고베이", "capital": "", "country": "자메이카", "region": "중앙아메리카 & 카리브", "color": "딥 오렌지"}, {"code": "BSB", "name": "브라질리아", "capital": "*", "country": "브라질", "region": "남아메리카", "color": "인디고 (남보라)"}, {"code": "CAI", "name": "카이로", "capital": "*", "country": "이집트", "region": "북아프리카", "color": "갈색"}, {"code": "ALX", "name": "알렉산드리아", "capital": "", "country": "이집트", "region": "북아프리카", "color": "연한 갈색"}, {"code": "RBA", "name": "라바트", "capital": "*", "country": "모로코", "region": "북아프리카", "color": "황토갈색"}, {"code": "CMN", "name": "카사블랑카", "capital": "", "country": "모로코", "region": "북아프리카", "color": "연베이지 갈색"}, {"code": "RAK", "name": "마라케시", "capital": "", "country": "모로코", "region": "북아프리카", "color": "진한 갈색"}, {"code": "ALG", "name": "알제", "capital": "*", "country": "알제리", "region": "북아프리카", "color": "어두운 갈색"}, {"code": "ORN", "name": "오랑", "capital": "", "country": "알제리", "region": "북아프리카", "color": "딥 브라운"}, {"code": "ABV", "name": "아부자", "capital": "*", "country": "나이지리아", "region": "서아프리카", "color": "틸 (청록진녹)"}, {"code": "LOS", "name": "라고스", "capital": "", "country": "나이지리아", "region": "서아프리카", "color": "밝은 틸"}, {"code": "ACC", "name": "아크라", "capital": "*", "country": "가나", "region": "서아프리카", "color": "진한 틸"}, {"code": "PRY", "name": "프리토리아", "capital": "*", "country": "남아프리카 공화국", "region": "남아프리카", "color": "핑크 (자홍분홍)"}, {"code": "CPT", "name": "케이프타운", "capital": "", "country": "남아프리카 공화국", "region": "남아프리카", "color": "밝은 핑크"}, {"code": "JNB", "name": "요하네스버그", "capital": "", "country": "남아프리카 공화국", "region": "남아프리카", "color": "연한 핑크"}, {"code": "WDH", "name": "빈트후크", "capital": "*", "country": "나미비아", "region": "남아프리카", "color": "진한 핑크"}, {"code": "WVB", "name": "월비스베이", "capital": "", "country": "나미비아", "region": "남아프리카", "color": "자주색"}, {"code": "GBE", "name": "가보로네", "capital": "*", "country": "보츠와나", "region": "남아프리카", "color": "딥 자주색"}, {"code": "BBK", "name": "카사네", "capital": "", "country": "보츠와나", "region": "남아프리카", "color": "아주 연한 분홍"}, {"code": "NGU", "name": "앙겔루무드", "capital": "*", "country": "팔라우", "region": "미크로네시아", "color": "연두색 (라임)"}, {"code": "ROR", "name": "코로르", "capital": "", "country": "팔라우", "region": "미크로네시아", "color": "밝은 연두"}, {"code": "PKI", "name": "팔리키르", "capital": "*", "country": "미크로네시아 연방", "region": "미크로네시아", "color": "풀색 연두"}, {"code": "TKK", "name": "웨노", "capital": "", "country": "미크로네시아 연방", "region": "미크로네시아", "color": "연한 라임색"}, {"code": "MAJ", "name": "마주로", "capital": "*", "country": "마셜 제도", "region": "미크로네시아", "color": "올리브빛 진녹색"}, {"code": "KWA", "name": "에베예", "capital": "", "country": "마셜 제도", "region": "미크로네시아", "color": "진한 올리브"}, {"code": "SUV", "name": "수바", "capital": "*", "country": "피지", "region": "멜라네시아", "color": "앰버 (노랑주황)"}, {"code": "NAN", "name": "난디", "capital": "", "country": "피지", "region": "멜라네시아", "color": "밝은 노랑"}, {"code": "VLI", "name": "포트빌라", "capital": "*", "country": "바누아투", "region": "멜라네시아", "color": "레몬노랑"}, {"code": "RIO", "name": "리우데자네이루", "capital": "", "country": "브라질", "region": "남아메리카", "color": "보라빛 인디고"}, {"code": "SAO", "name": "상파울루", "capital": "", "country": "브라질", "region": "남아메리카", "color": "연한 남보라"}, {"code": "BUE", "name": "부에노스아이레스", "capital": "*", "country": "아르헨티나", "region": "남아메리카", "color": "연보라빛 블루"}, {"code": "MDZ", "name": "멘도사", "capital": "", "country": "아르헨티나", "region": "남아메리카", "color": "짙은 남보라"}, {"code": "SCL", "name": "산티아고", "capital": "*", "country": "칠레", "region": "남아메리카", "color": "아주 어두운 남보라"}, {"code": "VAP", "name": "발파라이소", "capital": "", "country": "칠레", "region": "남아메리카", "color": "진한 인디고"}, {"code": "LIM", "name": "리마", "capital": "*", "country": "페루", "region": "남아메리카", "color": "연한 보라라벤더"}, {"code": "CUZ", "name": "쿠스코", "capital": "", "country": "페루", "region": "남아메리카", "color": "연한 남보라"}, {"code": "KMS", "name": "쿠마시", "capital": "", "country": "가나", "region": "서아프리카", "color": "연한 틸"}, {"code": "DKR", "name": "다카르", "capital": "*", "country": "세네갈", "region": "서아프리카", "color": "어두운 청록진녹"}, {"code": "XLS", "name": "생루이", "capital": "", "country": "세네갈", "region": "서아프리카", "color": "연한 청록"}, {"code": "NBO", "name": "나이로비", "capital": "*", "country": "케냐", "region": "동아프리카", "color": "네이비 (남색)"}, {"code": "MBA", "name": "몸바사", "capital": "", "country": "케냐", "region": "동아프리카", "color": "밝은 네이비"}, {"code": "DOM", "name": "도도마", "capital": "*", "country": "탄자니아", "region": "동아프리카", "color": "진한 네이비"}, {"code": "ZNZ", "name": "잔지바르", "capital": "", "country": "탄자니아", "region": "동아프리카", "color": "청보라색"}, {"code": "ADD", "name": "아디스아바바", "capital": "*", "country": "에티오피아", "region": "동아프리카", "color": "짙은 남색"}, {"code": "LLB", "name": "라리벨라", "capital": "", "country": "에티오피아", "region": "동아프리카", "color": "연한 청보라"}, {"code": "CBR", "name": "캔버라", "capital": "*", "country": "호주", "region": "오스트랄라시아", "color": "아쿠아 블루"}, {"code": "SYD", "name": "시드니", "capital": "", "country": "호주", "region": "오스트랄라시아", "color": "밝은 아쿠아"}, {"code": "MEL", "name": "멜버른", "capital": "", "country": "호주", "region": "오스트랄라시아", "color": "연한 아쿠아"}, {"code": "WLG", "name": "웰링턴", "capital": "*", "country": "뉴질랜드", "region": "오스트랄라시아", "color": "진한 아쿠아"}, {"code": "AKL", "name": "오클랜드", "capital": "", "country": "뉴질랜드", "region": "오스트랄라시아", "color": "딥 아쿠아"}, {"code": "POM", "name": "포트모르즈비", "capital": "*", "country": "파푸아뉴기니", "region": "오스트랄라시아", "color": "어두운 청록아쿠아"}, {"code": "LAE", "name": "라에", "capital": "", "country": "파푸아뉴기니", "region": "오스트랄라시아", "color": "아주 연한 아쿠아"}, {"code": "HNL", "name": "호놀룰루", "capital": "*", "country": "미국 (하와이)", "region": "폴리네시아", "color": "밝은 하늘색"}, {"code": "ITO", "name": "힐로", "capital": "", "country": "미국 (하와이)", "region": "폴리네시아", "color": "연한 하늘색"}, {"code": "APW", "name": "아피아", "capital": "*", "country": "사모아", "region": "폴리네시아", "color": "진한 하늘색"}, {"code": "VAI", "name": "바이텔레", "capital": "", "country": "사모아", "region": "폴리네시아", "color": "밝은 하늘빛"}, {"code": "TBU", "name": "누쿠알로파", "capital": "*", "country": "통가", "region": "폴리네시아", "color": "짙은 하늘색"}, {"code": "NPU", "name": "네이아후", "capital": "", "country": "통가", "region": "폴리네시아", "color": "아주 연한 하늘색"}, {"code": "SON", "name": "루간빌", "capital": "", "country": "바누아투", "region": "멜라네시아", "color": "밝은 레몬색"}, {"code": "HIR", "name": "호니아라", "capital": "*", "country": "솔로몬 제도", "region": "멜라네시아", "color": "진한 노랑주황"}, {"code": "GZO", "name": "기조", "capital": "", "country": "솔로몬 제도", "region": "멜라네시아", "color": "크림노랑"}];
 
-      for (let i = 1; i < tr.length; i++) {
-        let visible = false;
-        const td = tr[i].getElementsByTagName("td");
-        for (let j = 0; j < td.length; j++) {
-          if (td[j]) {
-            if (td[j].innerHTML.toLowerCase().indexOf(filter) > -1) {
-              visible = true;
-              break;
-            }
-          }
-        }
-        tr[i].style.display = visible ? "" : "none";
-      }
+    // 권역 셀렉트박스 옵션 초기화
+    function initFilters() {
+      const regions = [...new Set(citiesData.map(c => c.region))].filter(Boolean).sort();
+      const select = document.getElementById('regionFilter');
+      regions.forEach(region => {
+        const option = document.createElement('option');
+        option.value = region;
+        option.textContent = region;
+        select.appendChild(option);
+      });
     }
-  </script>
 
+    // 테이블 렌더링 함수
+    function renderTable(data) {
+      const tbody = document.getElementById('tableBody');
+      const countInfo = document.getElementById('countInfo');
+      
+      tbody.innerHTML = '';
+      
+      if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">검색 결과가 없습니다.</td></tr>`;
+        countInfo.textContent = '총 0개 도시 표시 중';
+        return;
+      }
+
+      data.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${c.code}</strong></td>
+          <td>${c.name}</td>
+          <td>${c.capital ? '<span class="badge-capital">수도</span>' : ''}</td>
+          <td>${c.country}</td>
+          <td>${c.region}</td>
+          <td>${c.color}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      countInfo.textContent = `총 ${data.length}개 도시 표시 중`;
+    }
+
+    // 검색 및 필터링
+    function filterTable() {
+      const query = document.getElementById('searchInput').value.toLowerCase().trim();
+      const selectedRegion = document.getElementById('regionFilter').value;
+
+      const filtered = citiesData.filter(c => {
+        const matchQuery = 
+          c.code.toLowerCase().includes(query) ||
+          c.name.toLowerCase().includes(query) ||
+          c.country.toLowerCase().includes(query) ||
+          c.color.toLowerCase().includes(query) ||
+          c.region.toLowerCase().includes(query);
+        
+        const matchRegion = selectedRegion === "" || c.region === selectedRegion;
+
+        return matchQuery && matchRegion;
+      });
+
+      renderTable(filtered);
+    }
+
+    // 초기 실행
+    initFilters();
+    renderTable(citiesData);
+  </script>
 </body>
 </html>
+ctlist.html
+ctlist.html 항목을 표시하는 중입니다.
