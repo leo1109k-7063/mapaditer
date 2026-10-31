@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>500x500 맵 에디터 & 셀 연동 덩어리 시스템</title>
+    <title>500x500 맵 에디터 & 구글맵 영역 분할 채우기 시스템</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -107,7 +107,7 @@
             font-size: 12px;
             pointer-events: none;
         }
-        #modal {
+        .modal {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
@@ -125,6 +125,16 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+        }
+        .popup-content {
+            background: #222;
+            width: 350px;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #555;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
         textarea {
             width: 100%;
@@ -160,7 +170,7 @@
 <body>
 
     <div id="header">
-        <h3 style="margin:0;">🗺️ 500×500 맵 에디터 (셀 기반 덩어리 연동 시스템)</h3>
+        <h3 style="margin:0;">🗺️ 500×500 맵 에디터_2610312035</h3>
         <div style="display:flex; align-items:center; gap:15px;">
             <div class="mode-tabs">
                 <button class="mode-tab active" id="tabGeneral" onclick="switchMode('general')">일반 모드</button>
@@ -182,7 +192,7 @@
 
         <!-- 구글맵 모드 전용 옵션 -->
         <div class="gmap-options" id="gmapOptions">
-            <span style="color:#00BCD4; font-weight:bold;">구글맵(#90D9ED) 인식:</span>
+            <span style="color:#00BCD4; font-weight:bold;">구글맵 인식:</span>
             <label><input type="radio" name="gmapTarget" value="1" checked> 바다로 인식</label>
             <label><input type="radio" name="gmapTarget" value="2"> 강으로 인식</label>
         </div>
@@ -200,6 +210,9 @@
         </button>
         <button class="tool-btn" id="btnMountain" onclick="setBrush('mountain')">
             <span class="color-dot" style="background:#1B5E20;"></span> 산
+        </button>
+        <button class="tool-btn" id="btnFill" onclick="setBrush('fill')" style="background:#8E24AA; color:#fff; font-weight:bold;">
+            🪣 영역 채우기
         </button>
         <span style="color:#555;">|</span>
         
@@ -236,12 +249,33 @@
         </div>
         <div id="controls-overlay">
             좌표: <span id="coord">X: -, Y: -</span> | 확대: <span id="zoomScale">100%</span><br>
-            💡 시설의 어떤 한 픽셀이라도 육지(지우개)로 칠하면 연결된 전체 시설 규격 칸이 통째로 지워집니다!
+            💡 '채우기' 모드에서 선을 긋고 구역을 **더블클릭**하면 채우기 대상 설정창이 뜹니다!
+        </div>
+    </div>
+
+    <!-- 구역 채우기 대상 설정 팝업 -->
+    <div id="fillPopup" class="modal">
+        <div class="popup-content">
+            <h4 style="margin:0; color:#ab47bc;">🪣 구역 채우기 대상 선택</h4>
+            <p style="font-size:12px; margin:0; color:#ccc;">선택한 구역에서 어떤 대상을 교체할까요?</p>
+            <select id="fillTargetSelect" style="background:#111; color:#fff; padding:8px; border:1px solid #555; border-radius:4px;">
+                <option value="all">전체 (모든 지형/시설)</option>
+                <option value="land">육지</option>
+                <option value="river">강</option>
+                <option value="sea">바다</option>
+                <option value="mountain">산지</option>
+                <option value="port">항구</option>
+                <option value="airport">공항</option>
+            </select>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:5px;">
+                <button class="action-btn" style="background:#555;" onclick="closeFillPopup()">취소</button>
+                <button class="action-btn" onclick="confirmFillRegion()">적용하기</button>
+            </div>
         </div>
     </div>
 
     <!-- HTML 추출 모달 -->
-    <div id="modal">
+    <div id="modal" class="modal">
         <div class="modal-content">
             <h4 style="margin:0;">📜 맵 파일 내보내기 설정</h4>
             <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
@@ -259,7 +293,7 @@
     <script>
         const GRID_SIZE = 500;
         let gridData = new Uint8Array(GRID_SIZE * GRID_SIZE); 
-        let currentMode = 'general'; // general 또는 gmap
+        let currentMode = 'general';
 
         const bgCanvas = document.getElementById('bgCanvas');
         const bgCtx = bgCanvas.getContext('2d');
@@ -279,6 +313,15 @@
         let panY = 50;
         let startPanX = 0, startPanY = 0;
 
+        // 채우기 관련 변수
+        let isFillingActive = false;
+        let fillLinePixels = []; 
+        let regionA = null;
+        let regionB = null;
+        let activeRegionPixels = null; 
+        let lastCoord = null;
+        let brushBeforeFill = 'sea';
+
         updateTransform();
         redrawGrid();
 
@@ -290,12 +333,32 @@
         }
 
         function setBrush(tool) {
-            currentTool = tool;
+            if (tool === 'fill') {
+                if (!isFillingActive) {
+                    if (currentTool !== 'fill') {
+                        brushBeforeFill = currentTool;
+                    }
+                    isFillingActive = true;
+                    fillLinePixels = [];
+                    regionA = null;
+                    regionB = null;
+                    activeRegionPixels = null;
+                }
+            } else {
+                isFillingActive = false;
+                currentTool = tool;
+                fillLinePixels = [];
+                regionA = null;
+                regionB = null;
+                activeRegionPixels = null;
+            }
+
             document.querySelectorAll('.tool-btn').forEach(b => {
                 if(!b.innerText.includes('업로드') && !b.innerText.includes('방향')) b.classList.remove('active');
             });
-            const btnMap = { sea: 'btnSea', river: 'btnRiver', land: 'btnLand', mountain: 'btnMountain', city: 'btnCity', port: 'btnPort', airport: 'btnAirport' };
+            const btnMap = { sea: 'btnSea', river: 'btnRiver', land: 'btnLand', mountain: 'btnMountain', fill: 'btnFill', city: 'btnCity', port: 'btnPort', airport: 'btnAirport' };
             if(btnMap[tool]) document.getElementById(btnMap[tool]).classList.add('active');
+            redrawGrid();
         }
 
         function toggleRotation() {
@@ -308,7 +371,6 @@
             document.getElementById('brushVal').innerText = brushRadius + 'px';
         };
 
-        // 투명도 슬라이더 이벤트 연결
         document.getElementById('opacityRange').oninput = (e) => {
             let val = parseFloat(e.target.value);
             gridCanvas.style.opacity = val;
@@ -382,19 +444,23 @@
                     bgCtx.drawImage(img, 0, 0, 500, 500);
 
                     const imgData = bgCtx.getImageData(0, 0, 500, 500).data;
-                    let gmapTargetVal = parseInt(document.querySelector('input[name="gmapTarget"]:checked').value); // 1: 바다, 2: 강
+                    let gmapTargetVal = parseInt(document.querySelector('input[name="gmapTarget"]:checked').value);
 
                     for (let y = 0; y < 500; y++) {
                         for (let x = 0; x < 500; x++) {
                             let idx = (y * 500 + x) * 4;
                             let currentVal = gridData[y * 500 + x];
-                            if (currentVal >= 4) continue; // 기존 시설은 보호
+                            if (currentVal >= 4) continue;
 
                             let r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
 
                             if (currentMode === 'gmap') {
-                                // #90D9ED (RGB: 144, 217, 237) 정밀 타겟팅 (오차 범위 ±10 허용)
-                                let isTargetColor = (r >= 134 && r <= 154 && g >= 207 && g <= 227 && b >= 227 && b <= 247);
+                                let isTargetColor = (
+                                    (r >= 134 && r <= 164 && g >= 207 && g <= 240 && b >= 227 && b <= 255) ||
+                                    (r >= 115 && r <= 135 && g >= 155 && g <= 185 && b >= 170 && b <= 195) ||
+                                    (r >= 125 && r <= 155 && g >= 195 && g <= 225 && b >= 215 && b <= 245)
+                                );
+
                                 if (isTargetColor) {
                                     gridData[y * 500 + x] = gmapTargetVal;
                                 } else {
@@ -453,6 +519,14 @@
                 startPanY = e.clientY - panY;
             } else if (e.button === 0) {
                 isDrawing = true;
+                const rect = wrapper.getBoundingClientRect();
+                let gx = Math.floor((e.clientX - rect.left) / scale);
+                let gy = Math.floor((e.clientY - rect.top) / scale);
+                lastCoord = { x: gx, y: gy };
+
+                if (isFillingActive && !regionA) {
+                    fillLinePixels = []; 
+                }
                 paint(e);
             }
         });
@@ -475,13 +549,84 @@
             }
         });
 
-        window.addEventListener('mouseup', () => { isPanning = false; isDrawing = false; });
+        window.addEventListener('mouseup', (e) => { 
+            if (isDrawing && isFillingActive && !regionA) {
+                checkAndSplitRegions();
+            }
+            isPanning = false; 
+            isDrawing = false; 
+            lastCoord = null;
+        });
+
+        // 더블클릭 이벤트 리스너 추가
+        workspace.addEventListener('dblclick', (e) => {
+            if (!isFillingActive || !regionA || !regionB) return;
+            const rect = wrapper.getBoundingClientRect();
+            let gx = Math.floor((e.clientX - rect.left) / scale);
+            let gy = Math.floor((e.clientY - rect.top) / scale);
+            if (gx < 0 || gx >= 500 || gy < 0 || gy >= 500) return;
+
+            let clickedIdx = gy * GRID_SIZE + gx;
+            if (regionA.has(clickedIdx)) {
+                activeRegionPixels = regionA;
+                document.getElementById('fillPopup').style.display = 'flex';
+            } else if (regionB.has(clickedIdx)) {
+                activeRegionPixels = regionB;
+                document.getElementById('fillPopup').style.display = 'flex';
+            }
+        });
+
+        function getLinePixels(x0, y0, x1, y1) {
+            let pixels = [];
+            let dx = Math.abs(x1 - x0);
+            let dy = Math.abs(y1 - y0);
+            let sx = (x0 < x1) ? 1 : -1;
+            let sy = (y0 < y1) ? 1 : -1;
+            let err = dx - dy;
+
+            let cx = x0, cy = y0;
+            while (true) {
+                pixels.push({ x: cx, y: cy });
+                if (cx === x1 && cy === y1) break;
+                let e2 = 2 * err;
+                if (e2 > -dy) {
+                    err -= dy;
+                    cx += sx;
+                }
+                if (e2 < dx) {
+                    err += dx;
+                    cy += sy;
+                }
+            }
+            return pixels;
+        }
 
         function paint(e) {
             const rect = wrapper.getBoundingClientRect();
             let gx = Math.floor((e.clientX - rect.left) / scale);
             let gy = Math.floor((e.clientY - rect.top) / scale);
             if (gx < 0 || gx >= 500 || gy < 0 || gy >= 500) return;
+
+            if (isFillingActive) {
+                if (isDrawing && !regionA) {
+                    if (lastCoord) {
+                        let linePts = getLinePixels(lastCoord.x, lastCoord.y, gx, gy);
+                        for (let pt of linePts) {
+                            for (let dy = -brushRadius; dy <= brushRadius; dy++) {
+                                for (let dx = -brushRadius; dx <= brushRadius; dx++) {
+                                    let px = pt.x + dx, py = pt.y + dy;
+                                    if (px >= 0 && px < 500 && py >= 0 && py < 500) {
+                                        fillLinePixels.push(py * GRID_SIZE + px);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    lastCoord = { x: gx, y: gy };
+                    redrawGrid();
+                }
+                return;
+            }
 
             if (['sea', 'river', 'land', 'mountain'].includes(currentTool)) {
                 let valMap = { sea: 1, river: 2, land: 0, mountain: 3 };
@@ -500,18 +645,24 @@
                     }
                 }
 
-                for (let dy = -brushRadius; dy <= brushRadius; dy++) {
-                    for (let dx = -brushRadius; dx <= brushRadius; dx++) {
-                        if (dx*dx + dy*dy <= brushRadius*brushRadius) {
-                            let px = gx + dx, py = gy + dy;
-                            if (px >= 0 && px < 500 && py >= 0 && py < 500) {
-                                if (gridData[py * 500 + px] < 4) {
-                                    gridData[py * 500 + px] = fillVal;
+                if (lastCoord) {
+                    let linePts = getLinePixels(lastCoord.x, lastCoord.y, gx, gy);
+                    for (let pt of linePts) {
+                        for (let dy = -brushRadius; dy <= brushRadius; dy++) {
+                            for (let dx = -brushRadius; dx <= brushRadius; dx++) {
+                                if (dx*dx + dy*dy <= brushRadius*brushRadius) {
+                                    let px = pt.x + dx, py = pt.y + dy;
+                                    if (px >= 0 && px < 500 && py >= 0 && py < 500) {
+                                        if (gridData[py * 500 + px] < 4) {
+                                            gridData[py * 500 + px] = fillVal;
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                lastCoord = { x: gx, y: gy };
             } else if (currentTool === 'city') {
                 let w = isRotated ? 3 : 2;
                 let h = isRotated ? 2 : 3;
@@ -526,6 +677,127 @@
                 fillStamp(gx, gy, w, h, 6);
             }
             redrawGrid();
+        }
+
+        function checkAndSplitRegions() {
+            if (fillLinePixels.length === 0) return;
+
+            let touchesEdge = false;
+            let lineSet = new Set(fillLinePixels);
+
+            for (let idx of lineSet) {
+                let x = idx % GRID_SIZE;
+                let y = Math.floor(idx / GRID_SIZE);
+                if (x === 0 || x === GRID_SIZE - 1 || y === 0 || y === GRID_SIZE - 1) {
+                    touchesEdge = true;
+                    break;
+                }
+            }
+
+            if (!touchesEdge) {
+                alert("선 양쪽 끝이 맵 끝(가장자리)에 닿아야 구역이 나뉩니다!");
+                fillLinePixels = [];
+                redrawGrid();
+                return;
+            }
+
+            regionA = new Set();
+            regionB = new Set();
+            let visited = new Uint8Array(GRID_SIZE * GRID_SIZE);
+            for(let idx of lineSet) visited[idx] = 1;
+
+            let candidates = [[100, 100], [400, 400], [100, 400], [400, 100]];
+            let foundSeeds = [];
+
+            for (let [sx, sy] of candidates) {
+                let sIdx = sy * GRID_SIZE + sx;
+                if (!visited[sIdx]) {
+                    foundSeeds.push(sIdx);
+                }
+            }
+
+            if (foundSeeds.length >= 2) {
+                let queue = [foundSeeds[0]];
+                visited[foundSeeds[0]] = 1;
+                while(queue.length > 0) {
+                    let curr = queue.shift();
+                    regionA.add(curr);
+                    let cx = curr % GRID_SIZE;
+                    let cy = Math.floor(curr / GRID_SIZE);
+                    let neighbors = [[cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]];
+                    for(let [nx, ny] of neighbors) {
+                        if(nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE) {
+                            let nIdx = ny * GRID_SIZE + nx;
+                            if(!visited[nIdx]) {
+                                visited[nIdx] = 1;
+                                queue.push(nIdx);
+                            }
+                        }
+                    }
+                }
+
+                if (!regionA.has(foundSeeds[1])) {
+                    queue = [foundSeeds[1]];
+                    visited[foundSeeds[1]] = 1;
+                    while(queue.length > 0) {
+                        let curr = queue.shift();
+                        regionB.add(curr);
+                        let cx = curr % GRID_SIZE;
+                        let cy = Math.floor(curr / GRID_SIZE);
+                        let neighbors = [[cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]];
+                        for(let [nx, ny] of neighbors) {
+                            if(nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE) {
+                                let nIdx = ny * GRID_SIZE + nx;
+                                if(!visited[nIdx]) {
+                                    visited[nIdx] = 1;
+                                    queue.push(nIdx);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            redrawGrid();
+        }
+
+        function closeFillPopup() {
+            document.getElementById('fillPopup').style.display = 'none';
+        }
+
+        function confirmFillRegion() {
+            if (!activeRegionPixels) return;
+            let targetType = document.getElementById('fillTargetSelect').value;
+
+            let newValMap = 1;
+            if (brushBeforeFill === 'sea') newValMap = 1;
+            else if (brushBeforeFill === 'river') newValMap = 2;
+            else if (brushBeforeFill === 'land') newValMap = 0;
+            else if (brushBeforeFill === 'mountain') newValMap = 3;
+            else if (brushBeforeFill === 'airport') newValMap = 6;
+            else if (brushBeforeFill === 'port') newValMap = 5;
+
+            let typeMapCode = { land: 0, sea: 1, river: 2, mountain: 3, port: 5, airport: 6 };
+
+            for (let idx of activeRegionPixels) {
+                let currentVal = gridData[idx];
+                if (targetType === 'all') {
+                    gridData[idx] = newValMap;
+                } else {
+                    let targetValCode = typeMapCode[targetType];
+                    if (currentVal === targetValCode) {
+                        gridData[idx] = newValMap;
+                    }
+                }
+            }
+
+            closeFillPopup();
+            activeRegionPixels = null;
+            regionA = null;
+            regionB = null;
+            fillLinePixels = [];
+            setBrush(brushBeforeFill);
+            redrawGrid();
+            alert("선택한 구역이 성공적으로 변경되었습니다!");
         }
 
         function fillStamp(startX, startY, w, h, typeVal) {
@@ -561,21 +833,46 @@
 
         function redrawGrid() {
             gridCtx.clearRect(0, 0, 500, 500);
+
             const colorMap = {
-                1: '#1A237E', // 바다
-                2: '#00BCD4', // 강
-                3: '#1B5E20', // 산
-                4: '#FFFFFF', // 시청
-                5: '#BDBDBD', // 항구
-                6: '#424242'  // 공항
+                1: '#1A237E', 
+                2: '#00BCD4', 
+                3: '#1B5E20', 
+                4: '#FFFFFF', 
+                5: '#BDBDBD', 
+                6: '#424242'  
             };
+
             for (let y = 0; y < 500; y++) {
                 for (let x = 0; x < 500; x++) {
-                    let type = gridData[y * 500 + x];
-                    if (type > 0 && colorMap[type]) {
-                        gridCtx.fillStyle = colorMap[type];
-                        gridCtx.fillRect(x, y, 1, 1);
+                    let idx = y * 500 + x;
+                    let type = gridData[idx];
+
+                    if (isFillingActive) {
+                        if (regionA && regionA.has(idx)) {
+                            gridCtx.fillStyle = '#7b1fa2'; 
+                        } else if (regionB && regionB.has(idx)) {
+                            gridCtx.fillStyle = '#512da8'; 
+                        } else {
+                            gridCtx.fillStyle = '#555555'; 
+                        }
+                    } else {
+                        if (type > 0 && colorMap[type]) {
+                            gridCtx.fillStyle = colorMap[type];
+                        } else {
+                            continue;
+                        }
                     }
+                    gridCtx.fillRect(x, y, 1, 1);
+                }
+            }
+
+            if (isFillingActive && fillLinePixels.length > 0) {
+                gridCtx.fillStyle = '#ba68c8';
+                for (let idx of fillLinePixels) {
+                    let x = idx % 500;
+                    let y = Math.floor(idx / 500);
+                    gridCtx.fillRect(x, y, 1, 1);
                 }
             }
         }
