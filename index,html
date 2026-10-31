@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>메인 페이지</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background-color: #f6f8fa;
+    }
+    .container {
+      display: flex;
+      gap: 16px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #ffffff;
+      background-color: #0969da;
+      border: none;
+      border-radius: 6px;
+      text-decoration: none;
+      text-align: center;
+      transition: background-color 0.2s ease;
+    }
+    .btn:hover {
+      background-color: #0451a5;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <a href="edit.html" class="btn">Edit</a>
+    <a href="ctlist.html" class="btn">CT List</a>
+  </div>
+
+</body>
+</html>
